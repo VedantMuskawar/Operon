@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:core_models/core_models.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 class TransactionsDataSource {
   TransactionsDataSource({FirebaseFirestore? firestore})
@@ -15,11 +16,54 @@ class TransactionsDataSource {
     return DateTime(d.year, d.month, d.day, 23, 59, 59, 999);
   }
 
+  void _logIndexSuggestion(
+    Object error, {
+    required String collection,
+    required List<String> whereFields,
+    String? orderByField,
+    String orderByDirection = 'DESCENDING',
+  }) {
+    if (error is! FirebaseException) return;
+    if (error.code != 'failed-precondition') return;
+
+    final fields = <Map<String, String>>[
+      ...whereFields.map((f) => {'fieldPath': f, 'order': 'ASCENDING'}),
+    ];
+
+    if (orderByField != null && orderByField.isNotEmpty) {
+      fields.add({'fieldPath': orderByField, 'order': orderByDirection});
+    }
+
+    debugPrint('[IndexHelper] Firestore index required for $collection.');
+    debugPrint('[IndexHelper] Where: ${whereFields.join(', ')}');
+    if (orderByField != null) {
+      debugPrint('[IndexHelper] OrderBy: $orderByField ($orderByDirection)');
+    }
+    debugPrint('[IndexHelper] Suggested index JSON:');
+    debugPrint('''{
+  "collectionGroup": "$collection",
+  "queryScope": "COLLECTION",
+  "fields": ${fields.toString()}
+}''');
+
+    if (error.message != null) {
+      debugPrint('[IndexHelper] Firestore message: ${error.message}');
+    }
+  }
+
   /// Create a new transaction
   Future<String> createTransaction(Transaction transaction) async {
     final docRef = _transactionsRef().doc();
     final transactionData = transaction.toJson();
     transactionData['transactionId'] = docRef.id;
+
+    // Ensure transactionDate is always stored (fallback to createdAt)
+    if (transactionData['transactionDate'] == null) {
+      final createdAt = transactionData['createdAt'];
+      if (createdAt != null) {
+        transactionData['transactionDate'] = createdAt;
+      }
+    }
 
     final metadata = Map<String, dynamic>.from(
       transactionData['metadata'] as Map<String, dynamic>? ?? {},
@@ -182,7 +226,16 @@ class TransactionsDataSource {
     DateTime? endDate,
     int? limit,
   }) async {
+    final whereFields = <String>[
+      'organizationId',
+      'vendorId',
+      'ledgerType',
+      'category',
+      'metadata.purchaseType',
+    ];
+
     try {
+
       Query<Map<String, dynamic>> query = _transactionsRef()
           .where('organizationId', isEqualTo: organizationId)
           .where('vendorId', isEqualTo: vendorId)
@@ -191,15 +244,19 @@ class TransactionsDataSource {
           .where('metadata.purchaseType', isEqualTo: 'fuel');
 
       if (startDate != null) {
-        query = query.where('createdAt',
+        query = query.where('transactionDate',
             isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
       }
       if (endDate != null) {
-        query = query.where('createdAt',
+        query = query.where('transactionDate',
             isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
       }
 
-      query = query.orderBy('createdAt', descending: true);
+      if (startDate != null || endDate != null) {
+        whereFields.add('transactionDate');
+      }
+
+      query = query.orderBy('transactionDate', descending: true);
 
       if (limit != null) {
         query = query.limit(limit);
@@ -210,6 +267,13 @@ class TransactionsDataSource {
           .map((doc) => Transaction.fromJson(doc.data(), doc.id))
           .toList();
     } catch (e) {
+      _logIndexSuggestion(
+        e,
+        collection: 'TRANSACTIONS',
+        whereFields: whereFields,
+        orderByField: 'transactionDate',
+        orderByDirection: 'DESCENDING',
+      );
       rethrow;
     }
   }
@@ -223,7 +287,14 @@ class TransactionsDataSource {
     DateTime? endDate,
     int? limit,
   }) async {
+    final whereFields = <String>[
+      'organizationId',
+      'ledgerType',
+      'category',
+    ];
+
     try {
+
       Query<Map<String, dynamic>> query = _transactionsRef()
           .where('organizationId', isEqualTo: organizationId)
           .where('ledgerType', isEqualTo: LedgerType.vendorLedger.name)
@@ -231,20 +302,26 @@ class TransactionsDataSource {
 
       if (financialYear != null) {
         query = query.where('financialYear', isEqualTo: financialYear);
+        whereFields.add('financialYear');
       }
 
       if (vendorId != null) {
         query = query.where('vendorId', isEqualTo: vendorId);
+        whereFields.add('vendorId');
       }
 
       if (startDate != null) {
-        query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+        query = query.where('transactionDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
       }
       if (endDate != null) {
-        query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
+        query = query.where('transactionDate', isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
       }
 
-      query = query.orderBy('createdAt', descending: true);
+      if (startDate != null || endDate != null) {
+        whereFields.add('transactionDate');
+      }
+
+      query = query.orderBy('transactionDate', descending: true);
 
       final effectiveLimit = limit ?? 50;
       query = query.limit(effectiveLimit);
@@ -254,6 +331,13 @@ class TransactionsDataSource {
           .map((doc) => Transaction.fromJson(doc.data(), doc.id))
           .toList();
     } catch (e) {
+      _logIndexSuggestion(
+        e,
+        collection: 'TRANSACTIONS',
+        whereFields: whereFields,
+        orderByField: 'transactionDate',
+        orderByDirection: 'DESCENDING',
+      );
       rethrow;
     }
   }
@@ -267,7 +351,14 @@ class TransactionsDataSource {
     DateTime? endDate,
     int? limit,
   }) async {
+    final whereFields = <String>[
+      'organizationId',
+      'ledgerType',
+      'category',
+    ];
+
     try {
+
       Query<Map<String, dynamic>> query = _transactionsRef()
           .where('organizationId', isEqualTo: organizationId)
           .where('ledgerType', isEqualTo: LedgerType.employeeLedger.name)
@@ -275,20 +366,26 @@ class TransactionsDataSource {
 
       if (financialYear != null) {
         query = query.where('financialYear', isEqualTo: financialYear);
+        whereFields.add('financialYear');
       }
 
       if (employeeId != null) {
         query = query.where('employeeId', isEqualTo: employeeId);
+        whereFields.add('employeeId');
       }
 
       if (startDate != null) {
-        query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+        query = query.where('transactionDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
       }
       if (endDate != null) {
-        query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
+        query = query.where('transactionDate', isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
       }
 
-      query = query.orderBy('createdAt', descending: true);
+      if (startDate != null || endDate != null) {
+        whereFields.add('transactionDate');
+      }
+
+      query = query.orderBy('transactionDate', descending: true);
 
       final effectiveLimit = limit ?? 50;
       query = query.limit(effectiveLimit);
@@ -298,6 +395,13 @@ class TransactionsDataSource {
           .map((doc) => Transaction.fromJson(doc.data(), doc.id))
           .toList();
     } catch (e) {
+      _logIndexSuggestion(
+        e,
+        collection: 'TRANSACTIONS',
+        whereFields: whereFields,
+        orderByField: 'transactionDate',
+        orderByDirection: 'DESCENDING',
+      );
       rethrow;
     }
   }
@@ -311,7 +415,14 @@ class TransactionsDataSource {
     DateTime? endDate,
     int? limit,
   }) async {
+    final whereFields = <String>[
+      'organizationId',
+      'ledgerType',
+      'category',
+    ];
+
     try {
+
       Query<Map<String, dynamic>> query = _transactionsRef()
           .where('organizationId', isEqualTo: organizationId)
           .where('ledgerType', isEqualTo: LedgerType.organizationLedger.name)
@@ -319,16 +430,21 @@ class TransactionsDataSource {
 
       if (financialYear != null) {
         query = query.where('financialYear', isEqualTo: financialYear);
+        whereFields.add('financialYear');
       }
 
       if (startDate != null) {
-        query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+        query = query.where('transactionDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
       }
       if (endDate != null) {
-        query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
+        query = query.where('transactionDate', isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
       }
 
-      query = query.orderBy('createdAt', descending: true);
+      if (startDate != null || endDate != null) {
+        whereFields.add('transactionDate');
+      }
+
+      query = query.orderBy('transactionDate', descending: true);
 
       final effectiveLimit = limit ?? 50;
       query = query.limit(effectiveLimit);
@@ -349,6 +465,13 @@ class TransactionsDataSource {
 
       return transactions;
     } catch (e) {
+      _logIndexSuggestion(
+        e,
+        collection: 'TRANSACTIONS',
+        whereFields: whereFields,
+        orderByField: 'transactionDate',
+        orderByDirection: 'DESCENDING',
+      );
       rethrow;
     }
   }
@@ -376,7 +499,13 @@ class TransactionsDataSource {
     DateTime? endDate,
     int? limit,
   }) async {
+    final whereFields = <String>[
+      'organizationId',
+      'category',
+    ];
+
     try {
+
       final expenseCategories = <String>[
         TransactionCategory.vendorPayment.name,
         TransactionCategory.salaryDebit.name,
@@ -389,18 +518,23 @@ class TransactionsDataSource {
 
       if (financialYear != null) {
         query = query.where('financialYear', isEqualTo: financialYear);
+        whereFields.add('financialYear');
       }
 
       if (startDate != null) {
-        query = query.where('createdAt',
+        query = query.where('transactionDate',
             isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
       }
       if (endDate != null) {
-        query = query.where('createdAt',
+        query = query.where('transactionDate',
             isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
       }
 
-      query = query.orderBy('createdAt', descending: true);
+      if (startDate != null || endDate != null) {
+        whereFields.add('transactionDate');
+      }
+
+      query = query.orderBy('transactionDate', descending: true);
 
       final effectiveLimit = limit ?? 50;
       query = query.limit(effectiveLimit);
@@ -417,6 +551,13 @@ class TransactionsDataSource {
           .whereType<Transaction>()
           .toList();
     } catch (e) {
+      _logIndexSuggestion(
+        e,
+        collection: 'TRANSACTIONS',
+        whereFields: whereFields,
+        orderByField: 'transactionDate',
+        orderByDirection: 'DESCENDING',
+      );
       rethrow;
     }
   }
@@ -467,9 +608,22 @@ class TransactionsDataSource {
         ...tripDocs.map((doc) => Transaction.fromJson(doc.data(), doc.id)),
         ...clientCreditDocs.map((doc) => Transaction.fromJson(doc.data(), doc.id)),
       ];
+      
+      // Sort: clientCredit by transactionDate, others by createdAt (most recent first)
       list.sort((a, b) {
-        final aDate = a.createdAt ?? DateTime(1970);
-        final bDate = b.createdAt ?? DateTime(1970);
+        final aIsCredit = a.category == TransactionCategory.clientCredit;
+        final bIsCredit = b.category == TransactionCategory.clientCredit;
+        
+        DateTime _getDate(Transaction tx, bool isCredit) {
+          if (isCredit && tx.transactionDate != null) {
+            return tx.transactionDate!;
+          }
+          // Fallback to createdAt
+          return tx.createdAt ?? DateTime(1970);
+        }
+        
+        final aDate = _getDate(a, aIsCredit);
+        final bDate = _getDate(b, bIsCredit);
         return bDate.compareTo(aDate);
       });
       if (limit != null && list.length > limit) {
@@ -531,23 +685,34 @@ class TransactionsDataSource {
     DateTime? endDate,
     int? limit,
   }) async {
+    final whereFields = <String>[
+      'organizationId',
+      'category',
+    ];
+
     try {
+
       Query<Map<String, dynamic>> query = _transactionsRef()
           .where('organizationId', isEqualTo: organizationId)
           .where('category', isEqualTo: TransactionCategory.clientPayment.name);
 
       if (financialYear != null) {
         query = query.where('financialYear', isEqualTo: financialYear);
+        whereFields.add('financialYear');
       }
 
       if (startDate != null) {
-        query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+        query = query.where('transactionDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
       }
       if (endDate != null) {
-        query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
+        query = query.where('transactionDate', isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
       }
 
-      query = query.orderBy('createdAt', descending: true);
+      if (startDate != null || endDate != null) {
+        whereFields.add('transactionDate');
+      }
+
+      query = query.orderBy('transactionDate', descending: true);
 
       final effectiveLimit = limit ?? 50;
       query = query.limit(effectiveLimit);
@@ -564,6 +729,13 @@ class TransactionsDataSource {
           .whereType<Transaction>()
           .toList();
     } catch (e) {
+      _logIndexSuggestion(
+        e,
+        collection: 'TRANSACTIONS',
+        whereFields: whereFields,
+        orderByField: 'transactionDate',
+        orderByDirection: 'DESCENDING',
+      );
       rethrow;
     }
   }
@@ -576,29 +748,40 @@ class TransactionsDataSource {
     DateTime? endDate,
     int? limit,
   }) async {
+    final whereFields = <String>[
+      'organizationId',
+      'category',
+    ];
+
     try {
+
       Query<Map<String, dynamic>> query = _transactionsRef()
           .where('organizationId', isEqualTo: organizationId)
           .where('category', isEqualTo: TransactionCategory.tripPayment.name);
 
       if (financialYear != null) {
         query = query.where('financialYear', isEqualTo: financialYear);
+        whereFields.add('financialYear');
       }
 
       if (startDate != null) {
         query = query.where(
-          'createdAt',
+          'transactionDate',
           isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
         );
       }
       if (endDate != null) {
         query = query.where(
-          'createdAt',
+          'transactionDate',
           isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)),
         );
       }
 
-      query = query.orderBy('createdAt', descending: true);
+      if (startDate != null || endDate != null) {
+        whereFields.add('transactionDate');
+      }
+
+      query = query.orderBy('transactionDate', descending: true);
 
       final effectiveLimit = limit ?? 50;
       query = query.limit(effectiveLimit);
@@ -615,6 +798,13 @@ class TransactionsDataSource {
           .whereType<Transaction>()
           .toList();
     } catch (e) {
+      _logIndexSuggestion(
+        e,
+        collection: 'TRANSACTIONS',
+        whereFields: whereFields,
+        orderByField: 'transactionDate',
+        orderByDirection: 'DESCENDING',
+      );
       rethrow;
     }
   }
@@ -627,7 +817,14 @@ class TransactionsDataSource {
     DateTime? endDate,
     int? limit,
   }) async {
+    final whereFields = <String>[
+      'organizationId',
+      'ledgerType',
+      'category',
+    ];
+
     try {
+
       Query<Map<String, dynamic>> query = _transactionsRef()
           .where('organizationId', isEqualTo: organizationId)
           .where('ledgerType', isEqualTo: LedgerType.vendorLedger.name)
@@ -635,16 +832,21 @@ class TransactionsDataSource {
 
       if (financialYear != null) {
         query = query.where('financialYear', isEqualTo: financialYear);
+        whereFields.add('financialYear');
       }
 
       if (startDate != null) {
-        query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+        query = query.where('transactionDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
       }
       if (endDate != null) {
-        query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
+        query = query.where('transactionDate', isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
       }
 
-      query = query.orderBy('createdAt', descending: true);
+      if (startDate != null || endDate != null) {
+        whereFields.add('transactionDate');
+      }
+
+      query = query.orderBy('transactionDate', descending: true);
 
       final effectiveLimit = limit ?? 50;
       query = query.limit(effectiveLimit);
@@ -661,6 +863,13 @@ class TransactionsDataSource {
           .whereType<Transaction>()
           .toList();
     } catch (e) {
+      _logIndexSuggestion(
+        e,
+        collection: 'TRANSACTIONS',
+        whereFields: whereFields,
+        orderByField: 'transactionDate',
+        orderByDirection: 'DESCENDING',
+      );
       rethrow;
     }
   }
@@ -733,20 +942,20 @@ class TransactionsDataSource {
     }
     if (startDate != null) {
       query = query.where(
-        'createdAt',
+        'transactionDate',
         isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
       );
     }
     if (endDate != null) {
       query = query.where(
-        'createdAt',
+        'transactionDate',
         isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)),
       );
     }
 
     query = query.where('category', whereIn: cashLedgerCategories.toList());
     final effectiveLimit = limit ?? 500;
-    query = query.orderBy('createdAt', descending: true).limit(effectiveLimit);
+    query = query.orderBy('transactionDate', descending: true).limit(effectiveLimit);
 
     return query.snapshots().map((snapshot) {
       final orderTransactions = <Transaction>[];
@@ -780,6 +989,24 @@ class TransactionsDataSource {
           // Skip invalid docs
         }
       }
+
+      // Sort orderTransactions: clientCredit by transactionDate, others by createdAt
+      orderTransactions.sort((a, b) {
+        final aIsCredit = a.category == TransactionCategory.clientCredit;
+        final bIsCredit = b.category == TransactionCategory.clientCredit;
+        
+        DateTime _getDate(Transaction tx, bool isCredit) {
+          if (isCredit && tx.transactionDate != null) {
+            return tx.transactionDate!;
+          }
+          // Fallback to createdAt
+          return tx.createdAt ?? DateTime.now();
+        }
+        
+        final aDate = _getDate(a, aIsCredit);
+        final bDate = _getDate(b, bIsCredit);
+        return bDate.compareTo(aDate);
+      });
 
       return <String, List<Transaction>>{
         'orderTransactions': orderTransactions,
@@ -858,7 +1085,16 @@ class TransactionsDataSource {
     DateTime? endDate,
     bool verifiedOnly = false,
   }) async {
+    final whereFields = <String>[
+      'organizationId',
+      'vendorId',
+      'ledgerType',
+      'category',
+      'type',
+    ];
+
     try {
+
       Query<Map<String, dynamic>> query = _transactionsRef()
           .where('organizationId', isEqualTo: organizationId)
           .where('vendorId', isEqualTo: vendorId)
@@ -868,15 +1104,19 @@ class TransactionsDataSource {
 
       // Filter by date range if provided
       if (startDate != null) {
-        query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+        query = query.where('transactionDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
       }
       if (endDate != null) {
         // Add one day to endDate to include the entire day
         final endDateInclusive = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
-        query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endDateInclusive));
+        query = query.where('transactionDate', isLessThanOrEqualTo: Timestamp.fromDate(endDateInclusive));
       }
 
-      query = query.orderBy('createdAt', descending: false); // Oldest first for invoice selection
+      if (startDate != null || endDate != null) {
+        whereFields.add('transactionDate');
+      }
+
+      query = query.orderBy('transactionDate', descending: false); // Oldest first for invoice selection
 
       final snapshot = await query.get();
       
@@ -910,6 +1150,13 @@ class TransactionsDataSource {
 
       return unpaidInvoices;
     } catch (e) {
+      _logIndexSuggestion(
+        e,
+        collection: 'TRANSACTIONS',
+        whereFields: whereFields,
+        orderByField: 'transactionDate',
+        orderByDirection: 'ASCENDING',
+      );
       rethrow;
     }
   }

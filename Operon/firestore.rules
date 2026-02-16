@@ -116,6 +116,10 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update, delete: if false;
     }
+    // Collection-group access for Attendance subcollections (used by collectionGroup queries)
+    match /{path=**}/Attendance/{docId} {
+      allow read: if isSignedIn();
+    }
     match /EMPLOYEE_LEDGERS/{ledgerId}/TRANSACTIONS/{monthDocId} {
       allow read: if isSignedIn();
       allow create, update, delete: if false;

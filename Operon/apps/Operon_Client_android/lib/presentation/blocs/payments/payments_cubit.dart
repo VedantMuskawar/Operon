@@ -265,6 +265,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
         category: TransactionCategory.clientPayment, // General payment recorded manually
         amount: state.paymentAmount!,
         financialYear: financialYear,
+        transactionDate: paymentDate,
         createdAt: paymentDate,
         updatedAt: paymentDate,
         createdBy: currentUser.uid,
@@ -278,11 +279,6 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       // Create transaction first to get ID for photo upload
       final transactionId =
           await _transactionsRepository.createTransaction(transaction);
-
-        await FirebaseFirestore.instance
-          .collection('TRANSACTIONS')
-          .doc(transactionId)
-          .update({'transactionDate': Timestamp.fromDate(paymentDate)});
 
       // Upload photo if provided (optional - payment is already recorded)
       String? photoUrl;

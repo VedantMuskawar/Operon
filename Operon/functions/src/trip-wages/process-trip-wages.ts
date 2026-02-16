@@ -164,7 +164,7 @@ export const processTripWages = onCall(
         logError('TripWages', 'processTripWages', 'Error fetching DM date, using payment date', error instanceof Error ? error : new Error(String(error)));
       }
 
-      const financialYear = getFinancialContext(parsedPaymentDate).fyLabel;
+      const financialYear = getFinancialContext(tripDate).fyLabel;
       const transactionIds: string[] = [];
 
       // Combine all employee IDs (unique set for attendance)
@@ -232,7 +232,7 @@ export const processTripWages = onCall(
               category: 'wageCredit',
               amount: loadingWagePerEmployee,
               financialYear,
-              paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate),
+              transactionDate: admin.firestore.Timestamp.fromDate(tripDate),
               description: `Trip Wage - Loading (DM: ${dmId})`,
               metadata: {
                 sourceType: 'tripWage',
@@ -292,7 +292,7 @@ export const processTripWages = onCall(
               category: 'wageCredit',
               amount: unloadingWagePerEmployee,
               financialYear,
-              paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate),
+              transactionDate: admin.firestore.Timestamp.fromDate(tripDate),
               description: `Trip Wage - Unloading (DM: ${dmId})`,
               metadata: {
                 sourceType: 'tripWage',

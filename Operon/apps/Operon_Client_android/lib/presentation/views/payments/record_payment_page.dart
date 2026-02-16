@@ -219,7 +219,16 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     if (splits.length == 1) {
       final accountId = splits.keys.first;
       // Find the PaymentAccount object from the UI's loaded accounts
-      final accountsCubit = context.read<PaymentAccountsCubit>();
+      final accountsCubit = _paymentAccountsCubit;
+      if (accountsCubit == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment accounts not loaded yet'),
+            backgroundColor: AuthColors.error,
+          ),
+        );
+        return;
+      }
       final accounts = accountsCubit.state.accounts;
       final account = accounts.where((a) => a.id == accountId).toList();
       if (account.isNotEmpty) {
@@ -268,121 +277,131 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       );
     }
 
-    return BlocConsumer<PaymentsCubit, PaymentsState>(
-      listener: (context, state) {
-        if (state.status == ViewStatus.success && state.message != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message!),
-              backgroundColor: AuthColors.success,
-            ),
-          );
-          if (state.selectedClientId != null && state.paymentAmount != null) {
-            // Navigate back after successful payment
-            Future.delayed(const Duration(seconds: 1), () {
-              if (mounted) {
-                context.go('/transactions');
-              }
-            });
+    if (_paymentAccountsCubit == null) {
+      return const Scaffold(
+        backgroundColor: AuthColors.background,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return BlocProvider.value(
+      value: _paymentAccountsCubit!,
+      child: BlocConsumer<PaymentsCubit, PaymentsState>(
+        listener: (context, state) {
+          if (state.status == ViewStatus.success && state.message != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message!),
+                backgroundColor: AuthColors.success,
+              ),
+            );
+            if (state.selectedClientId != null && state.paymentAmount != null) {
+              // Navigate back after successful payment
+              Future.delayed(const Duration(seconds: 1), () {
+                if (mounted) {
+                  context.go('/transactions');
+                }
+              });
+            }
+          } else if (state.status == ViewStatus.failure &&
+              state.message != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(state.message!),
+                backgroundColor: AuthColors.error,
+              ),
+            );
           }
-        } else if (state.status == ViewStatus.failure &&
-            state.message != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message!),
-              backgroundColor: AuthColors.error,
+        },
+        builder: (context, state) {
+          return Scaffold(
+            backgroundColor: AuthColors.background,
+            appBar: const ModernPageHeader(
+              title: 'Record Payment',
             ),
-          );
-        }
-      },
-      builder: (context, state) {
-        return Scaffold(
-          backgroundColor: AuthColors.background,
-          appBar: const ModernPageHeader(
-            title: 'Record Payment',
-          ),
-          body: SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppSpacing.paddingLG),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _sectionTitle('Client'),
-                          const SizedBox(height: AppSpacing.paddingSM),
-                          _buildClientSelection(state),
-                          const SizedBox(height: AppSpacing.paddingXL),
-                          if (state.selectedClientId != null &&
-                              state.currentBalance != null) ...[
-                            _sectionTitle('Current Balance'),
+            body: SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(AppSpacing.paddingLG),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _sectionTitle('Client'),
                             const SizedBox(height: AppSpacing.paddingSM),
-                            _buildCurrentBalance(state.currentBalance!),
+                            _buildClientSelection(state),
                             const SizedBox(height: AppSpacing.paddingXL),
+                            if (state.selectedClientId != null &&
+                                state.currentBalance != null) ...[
+                              _sectionTitle('Current Balance'),
+                              const SizedBox(height: AppSpacing.paddingSM),
+                              _buildCurrentBalance(state.currentBalance!),
+                              const SizedBox(height: AppSpacing.paddingXL),
+                            ],
+                            _sectionTitle('Amount'),
+                            const SizedBox(height: AppSpacing.paddingSM),
+                            _buildAmountField(),
+                            const SizedBox(height: AppSpacing.paddingXL),
+                            _buildPaymentAccountsSection(state),
+                            const SizedBox(height: AppSpacing.paddingXL),
+                            _sectionTitle('Description (Optional)'),
+                            const SizedBox(height: AppSpacing.paddingSM),
+                            _buildDescriptionField(),
+                            const SizedBox(height: AppSpacing.paddingXL),
+                            _sectionTitle('Payment Date'),
+                            const SizedBox(height: AppSpacing.paddingSM),
+                            _buildDateField(),
+                            const SizedBox(height: AppSpacing.paddingXL),
+                            _sectionTitle('Receipt Photo (Optional)'),
+                            const SizedBox(height: AppSpacing.paddingSM),
+                            _buildReceiptPhotoSection(state),
+                            const SizedBox(height: AppSpacing.paddingXXL),
+                            _buildSubmitButton(state),
                           ],
-                          _sectionTitle('Amount'),
-                          const SizedBox(height: AppSpacing.paddingSM),
-                          _buildAmountField(),
-                          const SizedBox(height: AppSpacing.paddingXL),
-                          _buildPaymentAccountsSection(state),
-                          const SizedBox(height: AppSpacing.paddingXL),
-                          _sectionTitle('Description (Optional)'),
-                          const SizedBox(height: AppSpacing.paddingSM),
-                          _buildDescriptionField(),
-                          const SizedBox(height: AppSpacing.paddingXL),
-                          _sectionTitle('Payment Date'),
-                          const SizedBox(height: AppSpacing.paddingSM),
-                          _buildDateField(),
-                          const SizedBox(height: AppSpacing.paddingXL),
-                          _sectionTitle('Receipt Photo (Optional)'),
-                          const SizedBox(height: AppSpacing.paddingSM),
-                          _buildReceiptPhotoSection(state),
-                          const SizedBox(height: AppSpacing.paddingXXL),
-                          _buildSubmitButton(state),
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                FloatingNavBar(
-                  items: const [
-                    NavBarItem(
-                      icon: Icons.home_rounded,
-                      label: 'Home',
-                      heroTag: 'nav_home',
-                    ),
-                    NavBarItem(
-                      icon: Icons.pending_actions_rounded,
-                      label: 'Pending',
-                      heroTag: 'nav_pending',
-                    ),
-                    NavBarItem(
-                      icon: Icons.schedule_rounded,
-                      label: 'Schedule',
-                      heroTag: 'nav_schedule',
-                    ),
-                    NavBarItem(
-                      icon: Icons.map_rounded,
-                      label: 'Map',
-                      heroTag: 'nav_map',
-                    ),
-                    NavBarItem(
-                      icon: Icons.event_available_rounded,
-                      label: 'Cash Ledger',
-                      heroTag: 'nav_cash_ledger',
-                    ),
-                  ],
-                  currentIndex: 0,
-                  onItemTapped: (value) => context.go('/home', extra: value),
-                ),
-              ],
+                  FloatingNavBar(
+                    items: const [
+                      NavBarItem(
+                        icon: Icons.home_rounded,
+                        label: 'Home',
+                        heroTag: 'nav_home',
+                      ),
+                      NavBarItem(
+                        icon: Icons.pending_actions_rounded,
+                        label: 'Pending',
+                        heroTag: 'nav_pending',
+                      ),
+                      NavBarItem(
+                        icon: Icons.schedule_rounded,
+                        label: 'Schedule',
+                        heroTag: 'nav_schedule',
+                      ),
+                      NavBarItem(
+                        icon: Icons.map_rounded,
+                        label: 'Map',
+                        heroTag: 'nav_map',
+                      ),
+                      NavBarItem(
+                        icon: Icons.event_available_rounded,
+                        label: 'Cash Ledger',
+                        heroTag: 'nav_cash_ledger',
+                      ),
+                    ],
+                    currentIndex: 0,
+                    onItemTapped: (value) => context.go('/home', extra: value),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

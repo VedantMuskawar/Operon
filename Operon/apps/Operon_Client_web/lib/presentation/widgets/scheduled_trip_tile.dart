@@ -189,7 +189,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 11,
               fontWeight: FontWeight.w600,

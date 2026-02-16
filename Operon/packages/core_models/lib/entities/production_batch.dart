@@ -26,6 +26,7 @@ class ProductionBatch {
     this.totalWages,
     this.wagePerEmployee,
     this.wageTransactionIds,
+    this.rawMaterialsUsed,
     this.notes,
     this.metadata,
   });
@@ -44,6 +45,7 @@ class ProductionBatch {
   final double? wagePerEmployee;
   final ProductionBatchStatus status;
   final List<String>? wageTransactionIds;
+  final List<RawMaterialUsage>? rawMaterialsUsed;
   final String createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -66,6 +68,8 @@ class ProductionBatch {
       if (wagePerEmployee != null) 'wagePerEmployee': wagePerEmployee,
       'status': status.name,
       if (wageTransactionIds != null) 'wageTransactionIds': wageTransactionIds,
+      if (rawMaterialsUsed != null)
+        'rawMaterialsUsed': rawMaterialsUsed!.map((m) => m.toJson()).toList(),
       'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
@@ -102,6 +106,11 @@ class ProductionBatch {
       wageTransactionIds: json['wageTransactionIds'] != null
           ? List<String>.from(json['wageTransactionIds'] as List)
           : null,
+        rawMaterialsUsed: json['rawMaterialsUsed'] != null
+          ? (json['rawMaterialsUsed'] as List)
+            .map((e) => RawMaterialUsage.fromJson(e as Map<String, dynamic>))
+            .toList()
+          : null,
       createdBy: json['createdBy'] as String? ?? '',
       createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (json['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -125,6 +134,7 @@ class ProductionBatch {
     double? wagePerEmployee,
     ProductionBatchStatus? status,
     List<String>? wageTransactionIds,
+    List<RawMaterialUsage>? rawMaterialsUsed,
     String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -146,11 +156,44 @@ class ProductionBatch {
       wagePerEmployee: wagePerEmployee ?? this.wagePerEmployee,
       status: status ?? this.status,
       wageTransactionIds: wageTransactionIds ?? this.wageTransactionIds,
+      rawMaterialsUsed: rawMaterialsUsed ?? this.rawMaterialsUsed,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       notes: notes ?? this.notes,
       metadata: metadata ?? this.metadata,
+    );
+  }
+}
+
+class RawMaterialUsage {
+  const RawMaterialUsage({
+    required this.materialId,
+    required this.materialName,
+    required this.quantity,
+    this.unitOfMeasurement,
+  });
+
+  final String materialId;
+  final String materialName;
+  final double quantity;
+  final String? unitOfMeasurement;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'materialId': materialId,
+      'materialName': materialName,
+      'quantity': quantity,
+      if (unitOfMeasurement != null) 'unitOfMeasurement': unitOfMeasurement,
+    };
+  }
+
+  factory RawMaterialUsage.fromJson(Map<String, dynamic> json) {
+    return RawMaterialUsage(
+      materialId: json['materialId'] as String? ?? '',
+      materialName: json['materialName'] as String? ?? '',
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 0,
+      unitOfMeasurement: json['unitOfMeasurement'] as String?,
     );
   }
 }

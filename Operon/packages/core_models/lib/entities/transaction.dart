@@ -52,6 +52,7 @@ class Transaction {
     required this.category,
     required this.amount,
     required this.createdBy,
+    this.transactionDate,
     required this.createdAt,
     required this.updatedAt,
     required this.financialYear,
@@ -91,6 +92,7 @@ class Transaction {
   final String? description;
   final Map<String, dynamic>? metadata;
   final String createdBy;
+  final DateTime? transactionDate; // For clientCredit: scheduled delivery date
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final String financialYear;
@@ -99,6 +101,10 @@ class Transaction {
   final bool verified;
   final String? verifiedBy;
   final DateTime? verifiedAt;
+
+  /// Preferred date for filtering/sorting: transactionDate -> createdAt -> epoch.
+  DateTime get effectiveDate =>
+      transactionDate ?? createdAt ?? DateTime(1970);
 
   Map<String, dynamic> toJson() {
     return {
@@ -124,6 +130,7 @@ class Transaction {
       if (description != null) 'description': description,
       if (metadata != null) 'metadata': metadata,
       'createdBy': createdBy,
+      if (transactionDate != null) 'transactionDate': Timestamp.fromDate(transactionDate!),
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
@@ -178,6 +185,7 @@ class Transaction {
       description: json['description'] as String?,
       metadata: json['metadata'] as Map<String, dynamic>?,
       createdBy: json['createdBy'] as String? ?? '',
+      transactionDate: (json['transactionDate'] as Timestamp?)?.toDate(),
       createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),
       financialYear: json['financialYear'] as String? ?? '',
@@ -211,6 +219,7 @@ class Transaction {
     String? description,
     Map<String, dynamic>? metadata,
     String? createdBy,
+    DateTime? transactionDate,
     DateTime? createdAt,
     DateTime? updatedAt,
     String? financialYear,
@@ -242,6 +251,7 @@ class Transaction {
       description: description ?? this.description,
       metadata: metadata ?? this.metadata,
       createdBy: createdBy ?? this.createdBy,
+      transactionDate: transactionDate ?? this.transactionDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       financialYear: financialYear ?? this.financialYear,

@@ -2,6 +2,10 @@
 export * from './ledger-maintenance/LedgerMaintenanceManager';
 // Ledger maintenance: sync CurrentBalance fields
 export * from './ledger-maintenance/syncCurrentBalance';
+// Ledger maintenance scheduled rebuilds (export explicitly to avoid LedgerType ambiguity)
+export { rebuildAllLedgersScheduled } from './ledger-maintenance/rebuild/rebuild-scheduled';
+// Ledger maintenance: rebuild ledger transaction subcollections from TRANSACTIONS
+export { rebuildLedgerTransactionsScheduled } from './ledger-maintenance/rebuild/rebuild-ledger-transactions';
 import * as admin from 'firebase-admin';
 
 admin.initializeApp();
@@ -21,6 +25,7 @@ export * from './cleanup';
 export * from './maintenance';
 export * from './production-batches';
 export * from './trip-wages';
+export * from './sync';
 // export * from './ledger-maintenance'; // Removed to avoid LedgerType export ambiguity
 export * from './employees/employee-analytics';
 export * from './geofences';

@@ -207,13 +207,6 @@ exports.onTripStatusUpdated = (0, firestore_1.onDocumentUpdated)(Object.assign({
             // If status changed FROM returned to something else, revert return fields in DELIVERY_MEMO
             await _revertDeliveryMemoReturn(tripId);
         }
-        // If status changed FROM dispatched to something else (e.g., scheduled), cancel credit transaction
-        if (beforeStatus === 'dispatched' && afterStatus !== 'dispatched') {
-            const creditTransactionId = after.creditTransactionId;
-            if (creditTransactionId) {
-                await _cancelCreditTransaction(tripId, creditTransactionId);
-            }
-        }
     }
     catch (error) {
         console.error('[Trip Status Update] Error updating order', {
@@ -427,52 +420,6 @@ async function _revertDeliveryMemoReturn(tripId) {
             error,
         });
         // Don't throw - delivery memo update failure shouldn't block trip status update
-    }
-}
-/**
- * Cancel credit transaction when trip is reverted from dispatched to scheduled
- */
-async function _cancelCreditTransaction(tripId, creditTransactionId) {
-    try {
-        const creditTxnRef = db.collection(constants_1.TRANSACTIONS_COLLECTION).doc(creditTransactionId);
-        const creditTxnDoc = await creditTxnRef.get();
-        if (!creditTxnDoc.exists) {
-            console.log('[Trip Status Update] Credit transaction not found', {
-                tripId,
-                transactionId: creditTransactionId,
-            });
-            return;
-        }
-        const creditTxnData = creditTxnDoc.data();
-        const currentStatus = creditTxnData === null || creditTxnData === void 0 ? void 0 : creditTxnData.status;
-        // Only cancel if not already cancelled
-        if (currentStatus !== 'cancelled') {
-            await creditTxnRef.update({
-                status: 'cancelled',
-                cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
-                cancelledBy: 'system',
-                cancellationReason: 'Trip dispatch reverted',
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-            console.log('[Trip Status Update] Credit transaction cancelled', {
-                tripId,
-                transactionId: creditTransactionId,
-            });
-        }
-        else {
-            console.log('[Trip Status Update] Credit transaction already cancelled', {
-                tripId,
-                transactionId: creditTransactionId,
-            });
-        }
-    }
-    catch (error) {
-        console.error('[Trip Status Update] Error cancelling credit transaction', {
-            tripId,
-            creditTransactionId,
-            error,
-        });
-        // Don't throw - transaction cancellation failure shouldn't block trip status update
     }
 }
 //# sourceMappingURL=trip-status-update.js.map

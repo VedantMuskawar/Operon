@@ -182,7 +182,7 @@ exports.processTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTI
         catch (error) {
             (0, logger_1.logError)('TripWages', 'processTripWages', 'Error fetching DM date, using payment date', error instanceof Error ? error : new Error(String(error)));
         }
-        const financialYear = (0, financial_year_1.getFinancialContext)(parsedPaymentDate).fyLabel;
+        const financialYear = (0, financial_year_1.getFinancialContext)(tripDate).fyLabel;
         const transactionIds = [];
         // Combine all employee IDs (unique set for attendance)
         const allEmployeeIds = Array.from(new Set([...loadingEmployeeIds, ...unloadingEmployeeIds]));
@@ -232,7 +232,7 @@ exports.processTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTI
                     const employeeName = employeeNameMap[employeeId];
                     const transactionData = Object.assign(Object.assign({ transactionId,
                         organizationId,
-                        employeeId }, (employeeName ? { employeeName } : {})), { ledgerType: 'employeeLedger', type: 'credit', category: 'wageCredit', amount: loadingWagePerEmployee, financialYear, paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate), description: `Trip Wage - Loading (DM: ${dmId})`, metadata: Object.assign({ sourceType: 'tripWage', sourceId: tripWageId, tripWageId,
+                        employeeId }, (employeeName ? { employeeName } : {})), { ledgerType: 'employeeLedger', type: 'credit', category: 'wageCredit', amount: loadingWagePerEmployee, financialYear, transactionDate: admin.firestore.Timestamp.fromDate(tripDate), description: `Trip Wage - Loading (DM: ${dmId})`, metadata: Object.assign({ sourceType: 'tripWage', sourceId: tripWageId, tripWageId,
                             dmId, taskType: 'loading' }, (employeeName ? { employeeName } : {})), createdBy, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
                     // Add vehicle number to metadata if available
                     if (vehicleNumber) {
@@ -264,7 +264,7 @@ exports.processTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTI
                     const employeeName = employeeNameMap[employeeId];
                     const transactionData = Object.assign(Object.assign({ transactionId,
                         organizationId,
-                        employeeId }, (employeeName ? { employeeName } : {})), { ledgerType: 'employeeLedger', type: 'credit', category: 'wageCredit', amount: unloadingWagePerEmployee, financialYear, paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate), description: `Trip Wage - Unloading (DM: ${dmId})`, metadata: Object.assign({ sourceType: 'tripWage', sourceId: tripWageId, tripWageId,
+                        employeeId }, (employeeName ? { employeeName } : {})), { ledgerType: 'employeeLedger', type: 'credit', category: 'wageCredit', amount: unloadingWagePerEmployee, financialYear, transactionDate: admin.firestore.Timestamp.fromDate(tripDate), description: `Trip Wage - Unloading (DM: ${dmId})`, metadata: Object.assign({ sourceType: 'tripWage', sourceId: tripWageId, tripWageId,
                             dmId, taskType: 'unloading' }, (employeeName ? { employeeName } : {})), createdBy, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
                     // Add vehicle number to metadata if available
                     if (vehicleNumber) {

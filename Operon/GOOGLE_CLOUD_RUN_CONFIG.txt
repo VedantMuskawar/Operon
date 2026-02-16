@@ -1,0 +1,18 @@
+Google Cloud Run Deployment Configuration
+Generated: Sat Feb 14 19:46:50 IST 2026
+
+Project ID: operon-updates
+Service Name: operon-updates
+Region: us-central1
+Service URL: https://operon-updates-nlwuwnlpia-uc.a.run.app
+Memory: 256Mi
+CPU: 1
+Authenticated User: vedantmuskawar@gmail.com
+
+Update your Flutter app with this server URL:
+File: apps/Operon_Client_android/lib/presentation/app.dart
+Line: 189
+Change: serverUrl: 'https://operon-updates-nlwuwnlpia-uc.a.run.app'
+
+Full URL to use:
+serverUrl: 'https://operon-updates-nlwuwnlpia-uc.a.run.app',

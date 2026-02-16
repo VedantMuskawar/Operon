@@ -195,6 +195,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
         category: TransactionCategory.vendorPurchase,
         amount: amount,
         createdBy: currentUser.uid,
+        transactionDate: _selectedDate,
         createdAt: _selectedDate,
         updatedAt: _selectedDate,
         financialYear: financialYear,
@@ -206,8 +207,6 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
       // Save to Firestore
       final transactionsRef = FirebaseFirestore.instance.collection('TRANSACTIONS');
       final transactionJson = transaction.toJson();
-      // Add transactionDate field (used by Cloud Functions)
-      transactionJson['transactionDate'] = Timestamp.fromDate(_selectedDate);
       final docRef = await transactionsRef.add(transactionJson);
       final transactionId = docRef.id;
 

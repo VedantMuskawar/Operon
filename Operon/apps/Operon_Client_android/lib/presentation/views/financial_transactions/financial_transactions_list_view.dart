@@ -565,8 +565,6 @@ class _EmptyTransactionsState extends StatelessWidget {
     switch (tabType) {
       case TransactionTabType.transactions:
         return 'payments';
-      case TransactionTabType.orders:
-        return 'orders';
       case TransactionTabType.purchases:
         return 'purchases';
       case TransactionTabType.expenses:

@@ -9,6 +9,8 @@ import 'package:operon_driver_android/core/services/dm_print_helper.dart';
 import 'package:operon_driver_android/core/services/location_service.dart';
 import 'package:operon_driver_android/data/datasources/users_data_source.dart';
 import 'package:operon_driver_android/data/repositories/users_repository.dart';
+import 'package:operon_driver_android/data/services/app_update_service.dart';
+import 'package:operon_driver_android/presentation/blocs/app_update/app_update_bloc.dart';
 import 'package:operon_driver_android/presentation/blocs/trip/trip_bloc.dart';
 
 class OperonDriverApp extends StatelessWidget {
@@ -53,6 +55,10 @@ class OperonDriverApp extends StatelessWidget {
       ),
     );
 
+    final appUpdateService = AppUpdateService(
+      serverUrl: 'https://operon-updates-nlwuwnlpia-uc.a.run.app',
+    );
+
     final dmPrintHelper = DmPrintHelper();
     final router = buildRouter();
 
@@ -95,6 +101,11 @@ class OperonDriverApp extends StatelessWidget {
               firestore: authRepository.firestore,
               locationService: locationService,
               backgroundSyncService: backgroundSyncService,
+            ),
+          ),
+          BlocProvider(
+            create: (_) => AppUpdateBloc(
+              updateService: appUpdateService,
             ),
           ),
         ],

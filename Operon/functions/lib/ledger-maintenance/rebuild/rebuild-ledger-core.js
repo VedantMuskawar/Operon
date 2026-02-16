@@ -162,12 +162,23 @@ async function rebuildLedgerCore(ledgerType, entityId, organizationId, financial
         baseLedgerData.createdAt = admin.firestore.FieldValue.serverTimestamp();
         await ledgerRef.set(baseLedgerData);
     }
-    // Update entity.currentBalance to match ledger
+    // Update entity.currentBalance to match ledger (skip if entity missing)
     const entityRef = db.collection(config.entityCollectionName).doc(entityId);
-    await entityRef.update({
-        [config.balanceField]: currentBalance,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    const entityDoc = await entityRef.get();
+    if (entityDoc.exists) {
+        await entityRef.update({
+            [config.balanceField]: currentBalance,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
+    else {
+        console.warn('[Ledger Rebuild] Entity document missing; skipped entity balance update', {
+            ledgerType,
+            entityId,
+            organizationId,
+            financialYear,
+        });
+    }
     return {
         previousBalance,
         newBalance: currentBalance,

@@ -36,11 +36,17 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.transactions = exports.orders = void 0;
+exports.transactions = exports.orders = exports.rebuildLedgerTransactionsScheduled = exports.rebuildAllLedgersScheduled = void 0;
 // Unified Ledger Maintenance Manager
 __exportStar(require("./ledger-maintenance/LedgerMaintenanceManager"), exports);
 // Ledger maintenance: sync CurrentBalance fields
 __exportStar(require("./ledger-maintenance/syncCurrentBalance"), exports);
+// Ledger maintenance scheduled rebuilds (export explicitly to avoid LedgerType ambiguity)
+var rebuild_scheduled_1 = require("./ledger-maintenance/rebuild/rebuild-scheduled");
+Object.defineProperty(exports, "rebuildAllLedgersScheduled", { enumerable: true, get: function () { return rebuild_scheduled_1.rebuildAllLedgersScheduled; } });
+// Ledger maintenance: rebuild ledger transaction subcollections from TRANSACTIONS
+var rebuild_ledger_transactions_1 = require("./ledger-maintenance/rebuild/rebuild-ledger-transactions");
+Object.defineProperty(exports, "rebuildLedgerTransactionsScheduled", { enumerable: true, get: function () { return rebuild_ledger_transactions_1.rebuildLedgerTransactionsScheduled; } });
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
 // Eager init Firestore for global caching (optional; getFirestore() also inits on first use)
@@ -57,6 +63,7 @@ __exportStar(require("./cleanup"), exports);
 __exportStar(require("./maintenance"), exports);
 __exportStar(require("./production-batches"), exports);
 __exportStar(require("./trip-wages"), exports);
+__exportStar(require("./sync"), exports);
 // export * from './ledger-maintenance'; // Removed to avoid LedgerType export ambiguity
 __exportStar(require("./employees/employee-analytics"), exports);
 __exportStar(require("./geofences"), exports);

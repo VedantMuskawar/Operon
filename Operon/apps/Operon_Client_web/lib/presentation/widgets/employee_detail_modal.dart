@@ -978,58 +978,75 @@ class _LedgerTable extends StatelessWidget {
       );
     }
 
-    visible.sort((a, b) {
-      final aDate = a['transactionDate'];
-      final bDate = b['transactionDate'];
+    DateTime _toDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is DateTime) return value;
+      if (value is Timestamp) return value.toDate();
       try {
-        final ad = aDate is Timestamp ? aDate.toDate() : (aDate as DateTime);
-        final bd = bDate is Timestamp ? bDate.toDate() : (bDate as DateTime);
-        return ad.compareTo(bd);
+        return (value as dynamic).toDate() as DateTime;
       } catch (_) {
-        return 0;
+        return DateTime.now();
       }
+    }
+
+    DateTime _dateOnly(DateTime date) =>
+        DateTime(date.year, date.month, date.day);
+
+    visible.sort((a, b) {
+      final ad = _toDate(a['transactionDate'] ?? a['createdAt']);
+      final bd = _toDate(b['transactionDate'] ?? b['createdAt']);
+      return ad.compareTo(bd);
     });
+
+    final dailyTotals = <DateTime, ({double debit, double credit, int count})>{};
+
+    for (final tx in visible) {
+      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
+      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+      final date = _dateOnly(_toDate(tx['transactionDate'] ?? tx['createdAt']));
+      final isCredit = type == 'credit';
+      final credit = isCredit ? amount : 0.0;
+      final debit = isCredit ? 0.0 : amount;
+
+      final existing = dailyTotals[date];
+      if (existing == null) {
+        dailyTotals[date] = (debit: debit, credit: credit, count: 1);
+      } else {
+        dailyTotals[date] = (
+          debit: existing.debit + debit,
+          credit: existing.credit + credit,
+          count: existing.count + 1,
+        );
+      }
+    }
 
     var totalDebit = 0.0;
     var totalCredit = 0.0;
     var running = openingBalance;
     final rows = <Widget>[];
-    for (final tx in visible) {
-      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
-      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-      final date = tx['transactionDate'] ?? tx['createdAt'];
-      final desc = (tx['description'] as String?)?.trim();
-      final batchTrip = (desc != null && desc.isNotEmpty) ? desc : '-';
-      final category = tx['category'] as String?;
-      final isCredit = type == 'credit';
-      final credit = isCredit ? amount : 0.0;
-      final debit = isCredit ? 0.0 : amount;
-      final txId = tx['transactionId'] as String? ?? tx['id'] as String?;
-      final metadata = tx['metadata'] as Map<String, dynamic>?;
-      final voucherUrl = metadata?['cashVoucherPhotoUrl']?.toString();
-      final showVoucher = category == 'salaryDebit' &&
-          txId != null &&
-          txId.isNotEmpty &&
-          voucherUrl != null &&
-          voucherUrl.isNotEmpty;
 
-      running += isCredit ? amount : -amount;
-      totalCredit += credit;
+    final days = dailyTotals.keys.toList()..sort();
+    for (final day in days) {
+      final totals = dailyTotals[day]!;
+      final debit = totals.debit;
+      final credit = totals.credit;
+      running += credit - debit;
       totalDebit += debit;
+      totalCredit += credit;
 
       rows.add(
         _LedgerTableRow(
-          date: date,
-          batchTrip: batchTrip,
+          date: day,
+          batchTrip: 'Daily total (${totals.count} tx)',
           debit: debit,
           credit: credit,
           balance: running,
-          type: _formatCategoryName(category),
+          type: 'Daily Summary',
           remarks: '-',
           formatCurrency: formatCurrency,
           formatDate: formatDate,
-          transactionId: txId,
-          showVoucher: showVoucher,
+          transactionId: null,
+          showVoucher: false,
         ),
       );
     }

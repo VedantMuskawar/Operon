@@ -1,6 +1,5 @@
 // Export all ledger maintenance functions
 export * from './validation/validate-ledger';
-export * from './validation/check-consistency';
 export * from './validation/check-all-ledgers';
 export * from './rebuild/rebuild-ledger';
 export * from './rebuild/rebuild-all-ledgers';

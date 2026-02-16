@@ -90,12 +90,17 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
     try {
       final start = DateTime(weekStartDate.year, weekStartDate.month, weekStartDate.day);
       final end = DateTime(weekEndDate.year, weekEndDate.month, weekEndDate.day, 23, 59, 59);
+      debugPrint('[WeeklyLedgerCubit] loadWeeklyLedger start=${start.toIso8601String()} end=${end.toIso8601String()}');
 
       // Fetch all employees
       final allEmployees = _employeesCache ??
           await _employeesRepository.fetchEmployees(_organizationId);
       _employeesCache ??= allEmployees;
       final productionEmployees = _filterProductionEmployees(allEmployees);
+      if (productionEmployees.isEmpty) {
+        debugPrint('[WeeklyLedgerCubit] No production-tagged employees found; using all employees.');
+      }
+      debugPrint('[WeeklyLedgerCubit] employees total=${allEmployees.length} productionRelevant=${productionEmployees.length}');
       final employeeMap = {for (var e in allEmployees) e.id: e};
 
       final monthlyTransactionsCache = <String, List<Map<String, dynamic>>>{};
@@ -107,30 +112,58 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
         startDate: start,
         endDate: end,
       );
+      debugPrint('[WeeklyLedgerCubit] batches fetched=${batches.length}');
       final tripWages = await _tripWagesRepository.fetchTripWages(
         _organizationId,
         startDate: start,
         endDate: end,
       );
+      debugPrint('[WeeklyLedgerCubit] tripWages fetched=${tripWages.length}');
 
       // Build entries
       final productionEntries = await _buildProductionEntries(
         batches,
-        productionEmployees,
         employeeMap,
         start,
         end,
         monthlyTransactionsCache,
       );
+      debugPrint('[WeeklyLedgerCubit] productionEntries built=${productionEntries.length}');
       final tripEntries = await _buildTripEntries(
         tripWages,
-        productionEmployees,
         employeeMap,
         start,
         end,
         monthlyTransactionsCache,
         deliveryMemoCache,
       );
+      debugPrint('[WeeklyLedgerCubit] tripEntries built=${tripEntries.length}');
+
+      final hasAnyData = productionEntries.isNotEmpty || tripEntries.isNotEmpty;
+
+      final employeeIds = <String>{};
+      for (final entry in productionEntries) {
+        employeeIds.addAll(entry.employeeIds);
+      }
+      for (final entry in tripEntries) {
+        employeeIds.addAll(entry.employeeIds);
+      }
+
+      final debitByEmployeeId = await _computeDebitsByEmployee(
+        employeeIds: employeeIds,
+        start: start,
+        end: end,
+        monthlyTransactionsCache: monthlyTransactionsCache,
+      );
+
+      final currentBalanceByEmployeeId = <String, double>{};
+      for (final id in employeeIds) {
+        final employee = employeeMap[id];
+        if (employee != null) {
+          currentBalanceByEmployeeId[id] = employee.currentBalance;
+        }
+      }
+      debugPrint('[WeeklyLedgerCubit] hasAnyData=$hasAnyData');
 
       emit(state.copyWith(
         status: ViewStatus.success,
@@ -138,7 +171,9 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
         weekEnd: end,
         productionEntries: productionEntries,
         tripEntries: tripEntries,
-        message: null,
+        debitByEmployeeId: debitByEmployeeId,
+        currentBalanceByEmployeeId: currentBalanceByEmployeeId,
+        message: hasAnyData ? null : 'No ledger data for the selected week.',
       ));
     } catch (e, stackTrace) {
       debugPrint('[WeeklyLedgerCubit] Error loading weekly ledger: $e');
@@ -162,81 +197,120 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
 
   Future<List<ProductionLedgerEntry>> _buildProductionEntries(
     List<ProductionBatch> batches,
-    List<OrganizationEmployee> productionEmployees,
     Map<String, OrganizationEmployee> employeeMap,
     DateTime weekStart,
     DateTime weekEnd,
     Map<String, List<Map<String, dynamic>>> monthlyTransactionsCache,
   ) async {
     final entries = <ProductionLedgerEntry>[];
+    var skippedBatches = 0;
     
     // Get unique yearMonths for the week
     final yearMonths = _getYearMonths(weekStart, weekEnd);
     final financialYear = _getFinancialYear(weekStart);
 
     for (final batch in batches) {
-      // Get employees in this batch that have Production tag
+      // Get employees in this batch (no role filtering)
       final batchEmployeeIds = batch.employeeIds.toSet();
-      final productionEmployeeIds = productionEmployees.map((e) => e.id).toSet();
-      final relevantEmployeeIds = batchEmployeeIds.intersection(productionEmployeeIds).toList();
+      final relevantEmployeeIds = batchEmployeeIds.toList();
 
       if (relevantEmployeeIds.isEmpty) {
+        skippedBatches++;
         continue; // Skip batches with no production employees
       }
 
       final names = <String>[];
       final balances = <double>[];
       
+      final resolvedEmployeeIds = <String>[];
       for (final id in relevantEmployeeIds) {
         final employee = employeeMap[id];
         if (employee != null) {
+          resolvedEmployeeIds.add(id);
           names.add(employee.name);
           balances.add(employee.currentBalance);
         }
       }
 
-      // Fetch wage transactions for all production employees in this batch
+      if (resolvedEmployeeIds.isEmpty) {
+        skippedBatches++;
+        continue;
+      }
+
+      // Fetch wage transactions for all production employees in this batch (parallel reads)
       final allTransactions = <Map<String, dynamic>>[];
-      for (final employeeId in relevantEmployeeIds) {
+      
+      // Build futures for all employee/yearMonth combinations
+      final futures = <Future<List<Map<String, dynamic>>>>[]; 
+      final futuresMeta = <({String employeeId, String yearMonth})>[];
+      
+      for (final employeeId in resolvedEmployeeIds) {
         for (final yearMonth in yearMonths) {
-          final monthlyTransactions = await _getMonthlyTransactionsCached(
-            cache: monthlyTransactionsCache,
-            employeeId: employeeId,
-            financialYear: financialYear,
-            yearMonth: yearMonth,
+          futures.add(
+            _getMonthlyTransactionsCached(
+              cache: monthlyTransactionsCache,
+              employeeId: employeeId,
+              financialYear: financialYear,
+              yearMonth: yearMonth,
+            ),
           );
-          
-          // Filter transactions by batchId and category
-          final batchTransactions = monthlyTransactions.where((tx) {
-            final category = tx['category'] as String?;
-            final metadata = tx['metadata'] as Map<String, dynamic>?;
-            final batchId = metadata?['batchId'] as String?;
-            
-            return category == 'wageCredit' &&
-                metadata?['sourceType'] == 'productionBatch' &&
-                batchId == batch.batchId;
-          }).toList();
-          
-          allTransactions.addAll(batchTransactions);
+          futuresMeta.add((employeeId: employeeId, yearMonth: yearMonth));
         }
+      }
+      
+      // Fetch all in parallel
+      final results = await Future.wait(futures);
+      
+      // Process results
+      for (int i = 0; i < results.length; i++) {
+        final monthlyTransactions = results[i];
+        final employeeId = futuresMeta[i].employeeId;
+        
+        // Filter transactions by batchId and category
+        final batchTransactions = monthlyTransactions.where((tx) {
+          final category = tx['category'] as String?;
+          final metadata = tx['metadata'] as Map<String, dynamic>?;
+          final batchId = metadata?['batchId'] as String?;
+          
+          return category == 'wageCredit' &&
+              metadata?['sourceType'] == 'productionBatch' &&
+              batchId == batch.batchId;
+        }).toList();
+        
+        allTransactions.addAll(
+          batchTransactions.map((tx) => {
+            ...tx,
+            '_employeeId': employeeId,
+          }),
+        );
       }
 
       // Convert to WeeklyLedgerTransactionRow
-      final salaryTransactions = allTransactions.map((tx) {
-        final description = tx['description'] as String? ?? 'Wage credit';
-        final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-        final transactionId = tx['transactionId'] as String?;
-        return WeeklyLedgerTransactionRow(
-          transactionId: transactionId,
-          description: description,
-          amount: amount,
-        );
-      }).toList();
+      final salaryTransactions = <WeeklyLedgerTransactionRow>[];
+      for (final employeeId in resolvedEmployeeIds) {
+        final employeeTransactions = allTransactions.where((tx) {
+          return (tx['_employeeId'] as String?) == employeeId;
+        });
+        for (final tx in employeeTransactions) {
+          final description = tx['description'] as String? ?? 'Wage credit';
+          final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+          final transactionId = tx['transactionId'] as String?;
+          salaryTransactions.add(WeeklyLedgerTransactionRow(
+            transactionId: transactionId,
+            description: description,
+            amount: amount,
+            employeeId: employeeId,
+          ));
+        }
+      }
 
       entries.add(ProductionLedgerEntry(
         date: batch.batchDate,
         batchNo: batch.batchId,
         batchId: batch.batchId,
+        bricksProduced: batch.totalBricksProduced,
+        bricksStacked: batch.totalBricksStacked,
+        employeeIds: resolvedEmployeeIds,
         employeeNames: names,
         employeeBalances: balances,
         salaryTransactions: salaryTransactions,
@@ -244,12 +318,12 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
     }
     
     entries.sort((a, b) => b.date.compareTo(a.date));
+    debugPrint('[WeeklyLedgerCubit] productionEntries: totalBatches=${batches.length} skipped=$skippedBatches entries=${entries.length}');
     return entries;
   }
 
   Future<List<TripLedgerEntry>> _buildTripEntries(
     List<TripWage> tripWages,
-    List<OrganizationEmployee> productionEmployees,
     Map<String, OrganizationEmployee> employeeMap,
     DateTime weekStart,
     DateTime weekEnd,
@@ -290,6 +364,7 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
     final yearMonths = _getYearMonths(weekStart, weekEnd);
     final financialYear = _getFinancialYear(weekStart);
 
+    var skippedGroups = 0;
     for (final entry in grouped.entries) {
       final parts = entry.key.split('|');
       final vehicleNo = parts[1];
@@ -303,70 +378,106 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
         allEmployeeIds.addAll(tw.unloadingEmployeeIds);
       }
 
-      // Filter to only production employees
-      final productionEmployeeIds = productionEmployees.map((e) => e.id).toSet();
-      final relevantEmployeeIds = allEmployeeIds.intersection(productionEmployeeIds).toList();
+      // Use all employees referenced in the trip wages (no role filtering)
+      final relevantEmployeeIds = allEmployeeIds.toList();
 
       if (relevantEmployeeIds.isEmpty) {
+        skippedGroups++;
         continue; // Skip trips with no production employees
       }
 
       final names = <String>[];
       final balances = <double>[];
       
+      final resolvedEmployeeIds = <String>[];
       for (final id in relevantEmployeeIds) {
         final employee = employeeMap[id];
         if (employee != null) {
+          resolvedEmployeeIds.add(id);
           names.add(employee.name);
           balances.add(employee.currentBalance);
         }
       }
 
-      // Fetch wage transactions for all production employees in these trip wages
+      if (resolvedEmployeeIds.isEmpty) {
+        skippedGroups++;
+        continue;
+      }
+
+      // Fetch wage transactions for all production employees in these trip wages (parallel reads)
       final allTransactions = <Map<String, dynamic>>[];
       final tripWageIds = twList.map((tw) => tw.tripWageId).toSet();
       
-      for (final employeeId in relevantEmployeeIds) {
+      // Build futures for all employee/yearMonth combinations
+      final futures = <Future<List<Map<String, dynamic>>>>[]; 
+      final futuresMeta = <({String employeeId, String yearMonth})>[];
+      
+      for (final employeeId in resolvedEmployeeIds) {
         for (final yearMonth in yearMonths) {
-          final monthlyTransactions = await _getMonthlyTransactionsCached(
-            cache: monthlyTransactionsCache,
-            employeeId: employeeId,
-            financialYear: financialYear,
-            yearMonth: yearMonth,
+          futures.add(
+            _getMonthlyTransactionsCached(
+              cache: monthlyTransactionsCache,
+              employeeId: employeeId,
+              financialYear: financialYear,
+              yearMonth: yearMonth,
+            ),
           );
-          
-          // Filter transactions by tripWageId and category
-          final tripTransactions = monthlyTransactions.where((tx) {
-            final category = tx['category'] as String?;
-            final metadata = tx['metadata'] as Map<String, dynamic>?;
-            final tripWageId = metadata?['tripWageId'] as String?;
-            
-            return category == 'wageCredit' &&
-                metadata?['sourceType'] == 'tripWage' &&
-                tripWageId != null &&
-                tripWageIds.contains(tripWageId);
-          }).toList();
-          
-          allTransactions.addAll(tripTransactions);
+          futuresMeta.add((employeeId: employeeId, yearMonth: yearMonth));
         }
+      }
+      
+      // Fetch all in parallel
+      final results = await Future.wait(futures);
+      
+      // Process results
+      for (int i = 0; i < results.length; i++) {
+        final monthlyTransactions = results[i];
+        final employeeId = futuresMeta[i].employeeId;
+
+        // Filter transactions by tripWageId and category
+        final tripTransactions = monthlyTransactions.where((tx) {
+          final category = tx['category'] as String?;
+          final metadata = tx['metadata'] as Map<String, dynamic>?;
+          final tripWageId = metadata?['tripWageId'] as String?;
+          
+          return category == 'wageCredit' &&
+              metadata?['sourceType'] == 'tripWage' &&
+              tripWageId != null &&
+              tripWageIds.contains(tripWageId);
+        }).toList();
+        
+        allTransactions.addAll(
+          tripTransactions.map((tx) => {
+            ...tx,
+            '_employeeId': employeeId,
+          }),
+        );
       }
 
       // Convert to WeeklyLedgerTransactionRow
-      final salaryTransactions = allTransactions.map((tx) {
-        final description = tx['description'] as String? ?? 'Wage credit';
-        final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-        final transactionId = tx['transactionId'] as String?;
-        return WeeklyLedgerTransactionRow(
-          transactionId: transactionId,
-          description: description,
-          amount: amount,
-        );
-      }).toList();
+      final salaryTransactions = <WeeklyLedgerTransactionRow>[];
+      for (final employeeId in resolvedEmployeeIds) {
+        final employeeTransactions = allTransactions.where((tx) {
+          return (tx['_employeeId'] as String?) == employeeId;
+        });
+        for (final tx in employeeTransactions) {
+          final description = tx['description'] as String? ?? 'Wage credit';
+          final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+          final transactionId = tx['transactionId'] as String?;
+          salaryTransactions.add(WeeklyLedgerTransactionRow(
+            transactionId: transactionId,
+            description: description,
+            amount: amount,
+            employeeId: employeeId,
+          ));
+        }
+      }
 
       entries.add(TripLedgerEntry(
         date: date,
         vehicleNo: vehicleNo,
         tripCount: twList.length,
+        employeeIds: resolvedEmployeeIds,
         employeeNames: names,
         employeeBalances: balances,
         salaryTransactions: salaryTransactions,
@@ -378,7 +489,7 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
       if (d != 0) return d;
       return a.vehicleNo.compareTo(b.vehicleNo);
     });
-    
+    debugPrint('[WeeklyLedgerCubit] tripEntries: grouped=${grouped.length} skipped=$skippedGroups entries=${entries.length}');
     return entries;
   }
 
@@ -398,5 +509,90 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
     );
     cache[key] = monthlyTransactions;
     return monthlyTransactions;
+  }
+
+  Future<Map<String, double>> _computeDebitsByEmployee({
+    required Set<String> employeeIds,
+    required DateTime start,
+    required DateTime end,
+    required Map<String, List<Map<String, dynamic>>> monthlyTransactionsCache,
+  }) async {
+    final result = <String, double>{};
+    if (employeeIds.isEmpty) return result;
+
+    final yearMonths = _getYearMonths(start, end);
+    final financialYear = _getFinancialYear(start);
+
+    // Build futures for all employee/yearMonth combinations (parallel reads)
+    final futures = <Future<List<Map<String, dynamic>>>>[]; 
+    final futuresMeta = <({String employeeId, String yearMonth})>[];
+    
+    for (final employeeId in employeeIds) {
+      for (final yearMonth in yearMonths) {
+        futures.add(
+          _getMonthlyTransactionsCached(
+            cache: monthlyTransactionsCache,
+            employeeId: employeeId,
+            financialYear: financialYear,
+            yearMonth: yearMonth,
+          ),
+        );
+        futuresMeta.add((employeeId: employeeId, yearMonth: yearMonth));
+      }
+    }
+    
+    // Fetch all in parallel
+    final transactionResults = await Future.wait(futures);
+    
+    // Process results and compute totals
+    final employeeTotals = <String, double>{};
+    for (int i = 0; i < transactionResults.length; i++) {
+      final transactions = transactionResults[i];
+      final employeeId = futuresMeta[i].employeeId;
+
+      for (final tx in transactions) {
+        final date = _getTransactionDate(tx);
+        if (date == null) continue;
+        if (date.isBefore(start) || date.isAfter(end)) continue;
+        if (_isDebitTransaction(tx)) {
+          final currentTotal = employeeTotals[employeeId] ?? 0.0;
+          employeeTotals[employeeId] = currentTotal + ((tx['amount'] as num?)?.toDouble() ?? 0.0);
+        }
+      }
+    }
+    
+    // Filter out zero totals and return
+    employeeTotals.forEach((employeeId, total) {
+      if (total > 0) result[employeeId] = total;
+    });
+
+    return result;
+  }
+
+  DateTime? _getTransactionDate(Map<String, dynamic> tx) {
+    final candidates = [tx['transactionDate'], tx['createdAt']];
+    for (final value in candidates) {
+      if (value == null) continue;
+      try {
+        return (value as dynamic).toDate() as DateTime;
+      } catch (_) {
+        if (value is DateTime) return value;
+      }
+    }
+    return null;
+  }
+
+  bool _isDebitTransaction(Map<String, dynamic> tx) {
+    final type = tx['type'] as String?;
+    if (type != null && type.toLowerCase() == 'debit') return true;
+    final category = tx['category'] as String?;
+    if (category == null) return false;
+    const debitCategories = {
+      'salaryDebit',
+      'employeeAdvance',
+      'employeeAdjustment',
+      'generalExpense',
+    };
+    return debitCategories.contains(category);
   }
 }

@@ -55,7 +55,7 @@ class ScheduledTripTile extends StatelessWidget {
           const SizedBox(width: AppSpacing.paddingXS),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -400,7 +400,7 @@ class ScheduledTripTile extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   zoneText,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: AuthColors.textMain,
                                     fontSize: 11,
                                   ),

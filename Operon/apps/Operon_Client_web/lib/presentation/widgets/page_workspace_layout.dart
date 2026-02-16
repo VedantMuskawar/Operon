@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'section_workspace_layout.dart' show computeHomeSections;
 
@@ -797,6 +798,8 @@ class _ProfileSideSheet extends StatelessWidget {
                   isAdmin: true,
                 ),
               ],
+              const SizedBox(height: 20),
+              _AppVersionInfo(),
               const Spacer(),
               DashButton(
                 label: 'Logout',
@@ -1011,6 +1014,52 @@ class _ProfileAction extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AppVersionInfo extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        final info = snapshot.data;
+        final versionLabel = info == null
+            ? '—'
+            : '${info.version} (${info.buildNumber})';
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: AuthColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.info_outline,
+                size: 18,
+                color: Colors.white54,
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'App Version',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const Spacer(),
+              Text(
+                versionLabel,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

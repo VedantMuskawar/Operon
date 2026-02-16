@@ -4,23 +4,27 @@ class WeeklyLedgerTransactionRow {
     required this.description,
     required this.amount,
     this.transactionId,
+    this.employeeId,
   });
 
   final String? transactionId;
   final String description;
   final double amount;
+  final String? employeeId;
 }
 
 /// Base data for a weekly ledger entry (production or trip).
 abstract class WeeklyLedgerEntry {
   const WeeklyLedgerEntry({
     required this.date,
+    required this.employeeIds,
     required this.employeeNames,
     required this.employeeBalances,
     this.salaryTransactions = const [],
   });
 
   final DateTime date;
+  final List<String> employeeIds;
   final List<String> employeeNames;
   final List<double> employeeBalances;
   final List<WeeklyLedgerTransactionRow> salaryTransactions;
@@ -31,6 +35,9 @@ class ProductionLedgerEntry extends WeeklyLedgerEntry {
   const ProductionLedgerEntry({
     required super.date,
     required this.batchNo,
+    required this.bricksProduced,
+    required this.bricksStacked,
+    required super.employeeIds,
     required super.employeeNames,
     required super.employeeBalances,
     super.salaryTransactions,
@@ -39,6 +46,8 @@ class ProductionLedgerEntry extends WeeklyLedgerEntry {
 
   final String batchNo;
   final String? batchId;
+  final int bricksProduced;
+  final int bricksStacked;
 }
 
 /// Trip row for the Weekly Ledger Trips section (grouped by date + vehicle).
@@ -47,6 +56,7 @@ class TripLedgerEntry extends WeeklyLedgerEntry {
     required super.date,
     required this.vehicleNo,
     required this.tripCount,
+    required super.employeeIds,
     required super.employeeNames,
     required super.employeeBalances,
     super.salaryTransactions,

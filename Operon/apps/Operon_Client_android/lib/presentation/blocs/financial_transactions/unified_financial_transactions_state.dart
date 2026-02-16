@@ -3,7 +3,6 @@ import 'package:core_models/core_models.dart';
 
 enum TransactionTabType {
   transactions, // Client payments (income)
-  orders, // Trip payments
   purchases, // Vendor purchases
   expenses, // All expenses (vendor payments + salary + general)
 }
@@ -12,7 +11,6 @@ class UnifiedFinancialTransactionsState extends BaseState {
   const UnifiedFinancialTransactionsState({
     super.status = ViewStatus.initial,
     this.transactions = const [],
-    this.orders = const [],
     this.purchases = const [],
     this.expenses = const [],
     this.selectedTab = TransactionTabType.transactions,
@@ -24,7 +22,6 @@ class UnifiedFinancialTransactionsState extends BaseState {
   });
 
   final List<Transaction> transactions;
-  final List<Transaction> orders;
   final List<Transaction> purchases;
   final List<Transaction> expenses;
   final TransactionTabType selectedTab;
@@ -36,8 +33,6 @@ class UnifiedFinancialTransactionsState extends BaseState {
     switch (selectedTab) {
       case TransactionTabType.transactions:
         return transactions;
-      case TransactionTabType.orders:
-        return orders;
       case TransactionTabType.purchases:
         return purchases;
       case TransactionTabType.expenses:
@@ -65,7 +60,6 @@ class UnifiedFinancialTransactionsState extends BaseState {
   UnifiedFinancialTransactionsState copyWith({
     ViewStatus? status,
     List<Transaction>? transactions,
-    List<Transaction>? orders,
     List<Transaction>? purchases,
     List<Transaction>? expenses,
     TransactionTabType? selectedTab,
@@ -78,7 +72,6 @@ class UnifiedFinancialTransactionsState extends BaseState {
     return UnifiedFinancialTransactionsState(
       status: status ?? this.status,
       transactions: transactions ?? this.transactions,
-      orders: orders ?? this.orders,
       purchases: purchases ?? this.purchases,
       expenses: expenses ?? this.expenses,
       selectedTab: selectedTab ?? this.selectedTab,

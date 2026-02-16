@@ -9,12 +9,16 @@ class WeeklyLedgerState extends BaseState {
     this.weekEnd,
     this.productionEntries = const [],
     this.tripEntries = const [],
+    this.debitByEmployeeId = const {},
+    this.currentBalanceByEmployeeId = const {},
   });
 
   final DateTime? weekStart;
   final DateTime? weekEnd;
   final List<ProductionLedgerEntry> productionEntries;
   final List<TripLedgerEntry> tripEntries;
+  final Map<String, double> debitByEmployeeId;
+  final Map<String, double> currentBalanceByEmployeeId;
 
   bool get hasData =>
       productionEntries.isNotEmpty || tripEntries.isNotEmpty;
@@ -27,6 +31,8 @@ class WeeklyLedgerState extends BaseState {
     DateTime? weekEnd,
     List<ProductionLedgerEntry>? productionEntries,
     List<TripLedgerEntry>? tripEntries,
+    Map<String, double>? debitByEmployeeId,
+    Map<String, double>? currentBalanceByEmployeeId,
   }) {
     return WeeklyLedgerState(
       status: status ?? this.status,
@@ -35,6 +41,9 @@ class WeeklyLedgerState extends BaseState {
       weekEnd: weekEnd ?? this.weekEnd,
       productionEntries: productionEntries ?? this.productionEntries,
       tripEntries: tripEntries ?? this.tripEntries,
+      debitByEmployeeId: debitByEmployeeId ?? this.debitByEmployeeId,
+      currentBalanceByEmployeeId:
+          currentBalanceByEmployeeId ?? this.currentBalanceByEmployeeId,
     );
   }
 }

@@ -16,7 +16,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 // Export all ledger maintenance functions
 __exportStar(require("./validation/validate-ledger"), exports);
-__exportStar(require("./validation/check-consistency"), exports);
 __exportStar(require("./validation/check-all-ledgers"), exports);
 __exportStar(require("./rebuild/rebuild-ledger"), exports);
 __exportStar(require("./rebuild/rebuild-all-ledgers"), exports);

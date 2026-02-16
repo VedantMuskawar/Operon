@@ -17,6 +17,8 @@ const _sections = [
   _SectionInfo('ordersMap', 'Orders Map', Icons.map_outlined, AuthColors.info),
   _SectionInfo('analyticsDashboard', 'Analytics', Icons.analytics_outlined,
       AuthColors.secondary),
+  _SectionInfo('cashLedger', 'Cash Ledger', Icons.event_available_outlined,
+    AuthColors.success),
 ];
 
 const _pages = [

@@ -77,8 +77,8 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         ...generalExpenses,
       ];
       allExpenses.sort((a, b) {
-        final aDate = a.createdAt ?? DateTime(1970);
-        final bDate = b.createdAt ?? DateTime(1970);
+        final aDate = a.effectiveDate;
+        final bDate = b.effectiveDate;
         return bDate.compareTo(aDate); // Descending order
       });
 
@@ -157,6 +157,7 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         category: TransactionCategory.vendorPayment,
         amount: amount,
         createdBy: _userId,
+        transactionDate: date,
         createdAt: date,
         updatedAt: DateTime.now(),
         financialYear: financialYear,
@@ -200,6 +201,7 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         category: TransactionCategory.salaryDebit,
         amount: amount,
         createdBy: _userId,
+        transactionDate: date,
         createdAt: date,
         updatedAt: DateTime.now(),
         financialYear: financialYear,
@@ -265,6 +267,7 @@ class ExpensesCubit extends Cubit<ExpensesState> {
           category: TransactionCategory.salaryDebit,
           amount: splitAmounts[i],
           createdBy: _userId,
+          transactionDate: date,
           createdAt: date,
           updatedAt: DateTime.now(),
           financialYear: financialYear,
@@ -322,6 +325,7 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         category: TransactionCategory.generalExpense,
         amount: amount,
         createdBy: _userId,
+        transactionDate: date,
         createdAt: date,
         updatedAt: DateTime.now(),
         financialYear: financialYear,

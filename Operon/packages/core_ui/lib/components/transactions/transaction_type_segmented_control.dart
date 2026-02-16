@@ -56,18 +56,11 @@ class TransactionTypeSegmentedControl extends StatelessWidget {
           1: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Text(
-              'Orders',
-              style: TextStyle(color: AuthColors.textMain),
-            ),
-          ),
-          2: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text(
               'Purchases',
               style: TextStyle(color: AuthColors.textMain),
             ),
           ),
-          3: Padding(
+          2: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Text(
               'Expenses',
@@ -100,23 +93,16 @@ class TransactionTypeSegmentedControl extends StatelessWidget {
           ),
           Expanded(
             child: _MaterialSegmentButton(
-              label: 'Orders',
+              label: 'Purchases',
               isSelected: selectedIndex == 1,
               onTap: () => onSelectionChanged(1),
             ),
           ),
           Expanded(
             child: _MaterialSegmentButton(
-              label: 'Purchases',
+              label: 'Expenses',
               isSelected: selectedIndex == 2,
               onTap: () => onSelectionChanged(2),
-            ),
-          ),
-          Expanded(
-            child: _MaterialSegmentButton(
-              label: 'Expenses',
-              isSelected: selectedIndex == 3,
-              onTap: () => onSelectionChanged(3),
             ),
           ),
         ],
@@ -153,9 +139,7 @@ class _MaterialSegmentButton extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected
-                  ? AuthColors.primary
-                  : AuthColors.textSub,
+              color: isSelected ? AuthColors.primary : AuthColors.textSub,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               fontSize: 13,
             ),

@@ -1,21 +1,26 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/domain/entities/weekly_ledger_entry.dart';
+import 'package:dash_web/domain/entities/weekly_ledger_matrix.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-/// Table widget for Weekly Ledger with merged cells and nested rows.
-/// Productions: Date | Batch No. | Employee names (row 1) | Current Balance (row 2) | Salary Transaction rows.
-/// Trips: Date | Vehicle No. (trip count) | Employee names (row 1) | Current Balance (row 2) | Salary Transaction rows.
+/// Weekly Ledger table in date-column matrix format.
+/// Header Row 1: Employees | Date (2 cols) ... | Total
+/// Header Row 2: (blank) | No. of Trips/Production | Amount ... | (blank)
 class WeeklyLedgerTable extends StatelessWidget {
   const WeeklyLedgerTable({
     super.key,
     required this.productionEntries,
     required this.tripEntries,
+    required this.debitByEmployeeId,
+    required this.currentBalanceByEmployeeId,
     this.formatCurrency,
   });
 
   final List<ProductionLedgerEntry> productionEntries;
   final List<TripLedgerEntry> tripEntries;
+  final Map<String, double> debitByEmployeeId;
+  final Map<String, double> currentBalanceByEmployeeId;
   final String Function(double)? formatCurrency;
 
   String _formatCurrency(double amount) =>
@@ -33,20 +38,30 @@ class WeeklyLedgerTable extends StatelessWidget {
           if (productionEntries.isNotEmpty) ...[
             const _SectionHeader(title: 'Productions'),
             const SizedBox(height: 8),
-            _ProductionsTable(
-              entries: productionEntries,
+            _LedgerMatrixTable(
+              matrix: buildProductionLedgerMatrix(
+                productionEntries,
+                debitByEmployeeId: debitByEmployeeId,
+                currentBalanceByEmployeeId: currentBalanceByEmployeeId,
+              ),
               formatCurrency: _formatCurrency,
               formatDate: _formatDate,
+              detailHeader: 'Production',
             ),
             const SizedBox(height: 32),
           ],
           if (tripEntries.isNotEmpty) ...[
             const _SectionHeader(title: 'Trips'),
             const SizedBox(height: 8),
-            _TripsTable(
-              entries: tripEntries,
+            _LedgerMatrixTable(
+              matrix: buildTripLedgerMatrix(
+                tripEntries,
+                debitByEmployeeId: debitByEmployeeId,
+                currentBalanceByEmployeeId: currentBalanceByEmployeeId,
+              ),
               formatCurrency: _formatCurrency,
               formatDate: _formatDate,
+              detailHeader: 'No. of Trips',
             ),
           ],
           if (productionEntries.isEmpty && tripEntries.isEmpty)
@@ -82,24 +97,43 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _ProductionsTable extends StatelessWidget {
-  const _ProductionsTable({
-    required this.entries,
+class _LedgerMatrixTable extends StatelessWidget {
+  const _LedgerMatrixTable({
+    required this.matrix,
     required this.formatCurrency,
     required this.formatDate,
+    required this.detailHeader,
   });
 
-  final List<ProductionLedgerEntry> entries;
+  final WeeklyLedgerMatrix matrix;
   final String Function(double) formatCurrency;
   final String Function(DateTime) formatDate;
+  final String detailHeader;
 
-  int get _maxEmployees =>
-      entries.isEmpty ? 0 : entries.map((e) => e.employeeNames.length).reduce((a, b) => a > b ? a : b);
+  static const double _employeeColWidth = 180;
+  static const double _openingColWidth = 110;
+  static const double _detailColWidth = 160;
+  static const double _amountColWidth = 90;
+  static const double _debitColWidth = 90;
+  static const double _totalColWidth = 100;
+  static const double _currentColWidth = 120;
 
   @override
   Widget build(BuildContext context) {
-    final maxCols = _maxEmployees;
-    final colCount = 2 + (maxCols > 0 ? maxCols : 1) + 2; // Date | Batch | employees | Desc | Amount
+    final dateCount = matrix.dates.length;
+    final colCount = 2 + (dateCount * 2) + 3; // Employee + Opening + date pairs + Debit + Total + Current
+
+    final columnWidths = <int, TableColumnWidth>{
+      0: const FixedColumnWidth(_employeeColWidth),
+      1: const FixedColumnWidth(_openingColWidth),
+      for (int i = 0; i < dateCount * 2; i++)
+        2 + i: i.isEven
+            ? const FixedColumnWidth(_detailColWidth)
+            : const FixedColumnWidth(_amountColWidth),
+      colCount - 3: const FixedColumnWidth(_debitColWidth),
+      colCount - 2: const FixedColumnWidth(_totalColWidth),
+      colCount - 1: const FixedColumnWidth(_currentColWidth),
+    };
 
     return Container(
       decoration: BoxDecoration(
@@ -107,224 +141,136 @@ class _ProductionsTable extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
-      child: Table(
-        border: TableBorder.symmetric(
-          inside: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
-          outside: BorderSide.none,
-        ),
-        columnWidths: {
-          for (int i = 0; i < colCount; i++)
-            i: i == 0
-                ? const FixedColumnWidth(100)
-                : i == 1
-                    ? const FixedColumnWidth(120)
-                    : i < 2 + maxCols
-                        ? const FixedColumnWidth(100)
-                        : i == colCount - 2
-                            ? const IntrinsicColumnWidth(flex: 1)
-                            : const FixedColumnWidth(90),
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
-          TableRow(
-            decoration: const BoxDecoration(color: AuthColors.background),
+          _buildHeaderRow1Merged(matrix),
+          _buildHeaderRow2Merged(matrix),
+          Divider(height: 1, thickness: 1, color: AuthColors.textMainWithOpacity(0.1)),
+          Table(
+            border: TableBorder.symmetric(
+              inside: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
+              outside: BorderSide.none,
+            ),
+            columnWidths: columnWidths,
             children: [
-              _cell('Date', isHeader: true),
-              _cell('Batch No.', isHeader: true),
-              ...List.generate(maxCols > 0 ? maxCols : 1, (_) => _cell('', isHeader: true)),
-              _cell('Description', isHeader: true),
-              _cell('Amount', isHeader: true),
+              for (final row in matrix.rows) _buildDataRow(row),
+              _buildFooterRow(matrix),
             ],
           ),
-          // Data rows per entry
-          for (final entry in entries) ..._buildEntryRows(entry, maxCols, colCount),
         ],
       ),
     );
   }
 
-  List<TableRow> _buildEntryRows(ProductionLedgerEntry entry, int maxCols, int colCount) {
-    final rows = <TableRow>[];
-    final n = entry.employeeNames.length;
-
-    // Row 1: Date, Batch No., Employee names, empty for tx
-    rows.add(
-      TableRow(
-        children: [
-          _cell(formatDate(entry.date)),
-          _cell(entry.batchNo),
-          ...List.generate(maxCols, (i) => _cell(i < n ? entry.employeeNames[i] : '')),
-          _cell(''),
-          _cell(''),
-        ],
-      ),
-    );
-    // Row 2: empty, empty, Balances, empty
-    rows.add(
-      TableRow(
-        decoration: BoxDecoration(color: AuthColors.background.withOpacity(0.3)),
-        children: [
-          _cell(''),
-          _cell(''),
-          ...List.generate(maxCols, (i) => _cell(i < n ? formatCurrency(entry.employeeBalances[i]) : '', muted: true)),
-          _cell(''),
-          _cell(''),
-        ],
-      ),
-    );
-    // Salary transaction rows
-    for (final tx in entry.salaryTransactions) {
-      rows.add(
-        TableRow(
-          children: [
-            _cell(''),
-            _cell(''),
-            ...List.generate(maxCols, (_) => _cell('')),
-            _cell(tx.description, small: true),
-            _cell(formatCurrency(tx.amount), numeric: true, small: true),
-          ],
-        ),
-      );
-    }
-
-    return rows;
-  }
-
-  Widget _cell(String text, {bool isHeader = false, bool muted = false, bool numeric = false, bool small = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: isHeader ? AuthColors.textSub : (muted ? AuthColors.textSub : AuthColors.textMain),
-          fontSize: small ? 12 : (isHeader ? 12 : 13),
-          fontWeight: isHeader ? FontWeight.w600 : FontWeight.normal,
-        ),
-        overflow: TextOverflow.ellipsis,
-        maxLines: 2,
-        textAlign: numeric ? TextAlign.right : TextAlign.start,
-      ),
-    );
-  }
-}
-
-class _TripsTable extends StatelessWidget {
-  const _TripsTable({
-    required this.entries,
-    required this.formatCurrency,
-    required this.formatDate,
-  });
-
-  final List<TripLedgerEntry> entries;
-  final String Function(double) formatCurrency;
-  final String Function(DateTime) formatDate;
-
-  int get _maxEmployees =>
-      entries.isEmpty ? 0 : entries.map((e) => e.employeeNames.length).reduce((a, b) => a > b ? a : b);
-
-  @override
-  Widget build(BuildContext context) {
-    final maxCols = _maxEmployees;
-    final colCount = 2 + (maxCols > 0 ? maxCols : 1) + 2;
-
+  Widget _buildHeaderRow1Merged(WeeklyLedgerMatrix matrix) {
     return Container(
-      decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
-      ),
-      child: Table(
-        border: TableBorder.symmetric(
-          inside: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
-          outside: BorderSide.none,
-        ),
-        columnWidths: {
-          for (int i = 0; i < colCount; i++)
-            i: i == 0
-                ? const FixedColumnWidth(100)
-                : i == 1
-                    ? const FixedColumnWidth(140)
-                    : i < 2 + maxCols
-                        ? const FixedColumnWidth(100)
-                        : i == colCount - 2
-                            ? const IntrinsicColumnWidth(flex: 1)
-                            : const FixedColumnWidth(90),
-        },
+      color: AuthColors.background,
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
         children: [
-          TableRow(
-            decoration: const BoxDecoration(color: AuthColors.background),
-            children: [
-              _cell('Date', isHeader: true),
-              _cell('Vehicle No. (Trips)', isHeader: true),
-              ...List.generate(maxCols > 0 ? maxCols : 1, (_) => _cell('', isHeader: true)),
-              _cell('Description', isHeader: true),
-              _cell('Amount', isHeader: true),
-            ],
+          SizedBox(
+            width: _employeeColWidth,
+            child: _cell('EMPLOYEES NAMES', isHeader: true),
           ),
-          for (final entry in entries) ..._buildEntryRows(entry, maxCols, colCount),
+          SizedBox(
+            width: _openingColWidth,
+            child: _cell('Opening Balance', isHeader: true),
+          ),
+          for (final date in matrix.dates)
+            SizedBox(
+              width: _detailColWidth + _amountColWidth,
+              child: _cell(formatDate(date), isHeader: true),
+            ),
+          SizedBox(
+            width: _debitColWidth,
+            child: _cell('Debit', isHeader: true),
+          ),
+          SizedBox(
+            width: _totalColWidth,
+            child: _cell('Total', isHeader: true),
+          ),
+          SizedBox(
+            width: _currentColWidth,
+            child: _cell('Current Balance', isHeader: true),
+          ),
         ],
       ),
     );
   }
 
-  List<TableRow> _buildEntryRows(TripLedgerEntry entry, int maxCols, int colCount) {
-    final rows = <TableRow>[];
-    final n = entry.employeeNames.length;
-    final vehicleLabel = '${entry.vehicleNo} (${entry.tripCount})';
-
-    rows.add(
-      TableRow(
+  Widget _buildHeaderRow2Merged(WeeklyLedgerMatrix matrix) {
+    return Container(
+      color: AuthColors.background.withOpacity(0.85),
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
         children: [
-          _cell(formatDate(entry.date)),
-          _cell(vehicleLabel),
-          ...List.generate(maxCols, (i) => _cell(i < n ? entry.employeeNames[i] : '')),
-          _cell(''),
-          _cell(''),
-        ],
-      ),
-    );
-    rows.add(
-      TableRow(
-        decoration: BoxDecoration(color: AuthColors.background.withOpacity(0.3)),
-        children: [
-          _cell(''),
-          _cell(''),
-          ...List.generate(maxCols, (i) => _cell(i < n ? formatCurrency(entry.employeeBalances[i]) : '', muted: true)),
-          _cell(''),
-          _cell(''),
-        ],
-      ),
-    );
-    for (final tx in entry.salaryTransactions) {
-      rows.add(
-        TableRow(
-          children: [
-            _cell(''),
-            _cell(''),
-            ...List.generate(maxCols, (_) => _cell('')),
-            _cell(tx.description, small: true),
-            _cell(formatCurrency(tx.amount), numeric: true, small: true),
+          SizedBox(width: _employeeColWidth, child: _cell('', isHeader: true)),
+          SizedBox(width: _openingColWidth, child: _cell('', isHeader: true)),
+          for (int i = 0; i < matrix.dates.length; i++) ...[
+            SizedBox(
+              width: _detailColWidth,
+              child: _cell(detailHeader, isHeader: true),
+            ),
+            SizedBox(
+              width: _amountColWidth,
+              child: _cell('Amount', isHeader: true, numeric: true),
+            ),
           ],
-        ),
-      );
-    }
-
-    return rows;
+          SizedBox(width: _debitColWidth, child: _cell('', isHeader: true)),
+          SizedBox(width: _totalColWidth, child: _cell('', isHeader: true)),
+          SizedBox(width: _currentColWidth, child: _cell('', isHeader: true)),
+        ],
+      ),
+    );
   }
 
-  Widget _cell(String text, {bool isHeader = false, bool muted = false, bool numeric = false, bool small = false}) {
+  TableRow _buildDataRow(WeeklyLedgerRow row) {
+    return TableRow(
+      children: [
+        _cell(row.employeeName),
+        _cell(formatCurrency(row.openingBalance), numeric: true),
+        for (final date in matrix.dates) ...[
+          _cell(row.cells[date]?.detailsText ?? '—', small: true),
+          _cell(formatCurrency(row.cells[date]?.amount ?? 0.0), numeric: true),
+        ],
+        _cell(formatCurrency(row.debitTotal), numeric: true),
+        _cell(formatCurrency(row.totalAmount), numeric: true),
+        _cell(formatCurrency(row.currentBalance), numeric: true),
+      ],
+    );
+  }
+
+  TableRow _buildFooterRow(WeeklyLedgerMatrix matrix) {
+    return TableRow(
+      decoration: const BoxDecoration(color: AuthColors.background),
+      children: [
+        _cell('TOTAL', isHeader: true),
+        _cell(formatCurrency(matrix.totalOpeningBalance), isHeader: true, numeric: true),
+        for (final date in matrix.dates) ...[
+          _cell('', isHeader: true),
+          _cell(formatCurrency(matrix.totalsByDate[date] ?? 0.0), isHeader: true, numeric: true),
+        ],
+        _cell(formatCurrency(matrix.totalDebit), isHeader: true, numeric: true),
+        _cell(formatCurrency(matrix.grandTotal), isHeader: true, numeric: true),
+        _cell(formatCurrency(matrix.totalCurrentBalance), isHeader: true, numeric: true),
+      ],
+    );
+  }
+
+  Widget _cell(String text, {bool isHeader = false, bool numeric = false, bool small = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
       child: Text(
         text,
         style: TextStyle(
-          color: isHeader ? AuthColors.textSub : (muted ? AuthColors.textSub : AuthColors.textMain),
+          color: isHeader ? AuthColors.textSub : AuthColors.textMain,
           fontSize: small ? 12 : (isHeader ? 12 : 13),
           fontWeight: isHeader ? FontWeight.w600 : FontWeight.normal,
         ),
         overflow: TextOverflow.ellipsis,
-        maxLines: 2,
-        textAlign: numeric ? TextAlign.right : TextAlign.start,
+        maxLines: 3,
+        textAlign: TextAlign.center,
       ),
     );
   }

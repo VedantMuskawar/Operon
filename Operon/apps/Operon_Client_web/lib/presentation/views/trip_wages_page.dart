@@ -10,9 +10,11 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/trip_wages/trip_wages_cubit.dart';
 import 'package:dash_web/presentation/blocs/trip_wages/trip_wages_state.dart';
 import 'package:dash_web/presentation/blocs/weekly_ledger/weekly_ledger_cubit.dart';
+import 'package:dash_web/presentation/blocs/weekly_ledger/weekly_ledger_state.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:dash_web/presentation/widgets/trip_wage_employee_selection_dialog.dart';
 import 'package:dash_web/presentation/widgets/weekly_ledger_section.dart';
+import 'package:dash_web/presentation/widgets/weekly_ledger_week_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -93,6 +95,7 @@ class _TripWagesContent extends StatefulWidget {
 class _TripWagesContentState extends State<_TripWagesContent> {
   DateTime _selectedDate = DateTime.now();
   int _sectionIndex = 0;
+  final WeeklyLedgerActionController _ledgerActions = WeeklyLedgerActionController();
 
   @override
   void initState() {
@@ -131,6 +134,62 @@ class _TripWagesContentState extends State<_TripWagesContent> {
       });
       context.read<TripWagesCubit>().loadActiveDMsForDate(_selectedDate);
     }
+  }
+
+  Future<void> _openWeeklyLedgerDialog(BuildContext context) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => const WeeklyLedgerWeekDialog(),
+    );
+    if (result != null && context.mounted) {
+      final weekStart = result['weekStart'] as DateTime?;
+      final weekEnd = result['weekEnd'] as DateTime?;
+      if (weekStart != null && weekEnd != null) {
+        context.read<WeeklyLedgerCubit>().loadWeeklyLedger(weekStart, weekEnd);
+      }
+    }
+  }
+
+  Widget _buildDatePickerButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AuthColors.textMain.withValues(alpha: 0.15),
+        ),
+      ),
+      child: InkWell(
+        onTap: _selectDate,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.calendar_today,
+                color: AuthColors.textSub,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                style: const TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.arrow_drop_down,
+                color: AuthColors.textSub,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _handleDMCardTap(Map<String, dynamic> dm) async {
@@ -435,26 +494,81 @@ class _TripWagesContentState extends State<_TripWagesContent> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 400),
-                  child: FloatingNavBar(
-                    items: const [
-                      NavBarItem(
-                        icon: Icons.local_shipping_outlined,
-                        label: 'Trip Wages',
-                        heroTag: 'trip_wages_main',
-                      ),
-                      NavBarItem(
-                        icon: Icons.calendar_view_week_outlined,
-                        label: 'Weekly Ledger',
-                        heroTag: 'trip_wages_weekly_ledger',
-                      ),
-                    ],
-                    currentIndex: _sectionIndex,
-                    onItemTapped: (index) => setState(() => _sectionIndex = index),
+              child: Row(
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: FloatingNavBar(
+                      items: const [
+                        NavBarItem(
+                          icon: Icons.local_shipping_outlined,
+                          label: 'Trip Wages',
+                          heroTag: 'trip_wages_main',
+                        ),
+                        NavBarItem(
+                          icon: Icons.calendar_view_week_outlined,
+                          label: 'Weekly Ledger',
+                          heroTag: 'trip_wages_weekly_ledger',
+                        ),
+                      ],
+                      currentIndex: _sectionIndex,
+                      onItemTapped: (index) => setState(() => _sectionIndex = index),
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  if (_sectionIndex == 0) _buildDatePickerButton(),
+                  if (_sectionIndex == 1)
+                    BlocBuilder<WeeklyLedgerCubit, WeeklyLedgerState>(
+                      builder: (context, ledgerState) {
+                        return ValueListenableBuilder<bool>(
+                          valueListenable: _ledgerActions.isGeneratingPdf,
+                          builder: (context, isGeneratingPdf, _) {
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  DashButton(
+                                    icon: Icons.calendar_month,
+                                    label: 'Generate Weekly Ledger',
+                                    onPressed: ledgerState.status == ViewStatus.loading
+                                        ? null
+                                        : () => _openWeeklyLedgerDialog(context),
+                                  ),
+                                  if (ledgerState.hasData) ...[
+                                    const SizedBox(width: 12),
+                                    DashButton(
+                                      icon: Icons.share,
+                                      label: 'Share',
+                                      variant: DashButtonVariant.outlined,
+                                      onPressed: isGeneratingPdf
+                                          ? null
+                                          : () => _ledgerActions.shareAsPng(context),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    DashButton(
+                                      icon: Icons.picture_as_pdf,
+                                      label: 'Print PDF',
+                                      variant: DashButtonVariant.outlined,
+                                      onPressed: isGeneratingPdf
+                                          ? null
+                                          : () => _ledgerActions.printPdf(context, ledgerState),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    DashButton(
+                                      icon: Icons.table_chart,
+                                      label: 'Export Excel',
+                                      variant: DashButtonVariant.outlined,
+                                      onPressed: () => _ledgerActions.exportExcel(context, ledgerState),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                ],
               ),
             ),
             if (_sectionIndex == 0)
@@ -463,52 +577,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AuthColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: AuthColors.textMain.withValues(alpha: 0.15),
-                            ),
-                          ),
-                          child: InkWell(
-                            onTap: _selectDate,
-                            borderRadius: BorderRadius.circular(12),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.calendar_today,
-                                    color: AuthColors.textSub,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                                    style: const TextStyle(
-                                      color: AuthColors.textMain,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Icon(
-                                    Icons.arrow_drop_down,
-                                    color: AuthColors.textSub,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
                     LayoutBuilder(
                 builder: (context, constraints) {
                   return SizedBox(
@@ -644,9 +713,9 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                 ),
               ),
             if (_sectionIndex != 0)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(24, 0, 24, 24),
-                child: _WeeklyLedgerBlock(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: _WeeklyLedgerBlock(actionsController: _ledgerActions),
               ),
           ],
         );
@@ -1643,7 +1712,9 @@ class _InfoItem extends StatelessWidget {
 }
 
 class _WeeklyLedgerBlock extends StatelessWidget {
-  const _WeeklyLedgerBlock();
+  const _WeeklyLedgerBlock({required this.actionsController});
+
+  final WeeklyLedgerActionController actionsController;
 
   @override
   Widget build(BuildContext context) {
@@ -1654,6 +1725,8 @@ class _WeeklyLedgerBlock extends StatelessWidget {
     return WeeklyLedgerSection(
       organizationId: organization.id,
       weeklyLedgerCubit: cubit,
+      actionsController: actionsController,
+      showActionsRow: false,
     );
   }
 }

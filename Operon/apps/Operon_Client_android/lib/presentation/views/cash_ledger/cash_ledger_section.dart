@@ -1167,7 +1167,7 @@ class _TransactionTableRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = transaction.createdAt ?? DateTime.now();
+    final date = transaction.effectiveDate;
     final dateStr =
         '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
 

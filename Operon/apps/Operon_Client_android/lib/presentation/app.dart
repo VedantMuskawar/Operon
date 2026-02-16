@@ -32,9 +32,13 @@ import 'package:dash_mobile/presentation/blocs/app_initialization/app_initializa
 import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_selector/org_selector_cubit.dart';
+import 'package:dash_mobile/presentation/blocs/app_update/app_update_bloc.dart';
+import 'package:dash_mobile/presentation/blocs/app_update/app_update_event.dart';
 import 'package:dash_mobile/presentation/widgets/caller_overlay_bootstrap.dart';
 import 'package:dash_mobile/presentation/widgets/notification_token_bootstrap.dart';
 import 'package:dash_mobile/presentation/widgets/textured_background.dart';
+import 'package:dash_mobile/presentation/widgets/app_update_wrapper.dart';
+import 'package:dash_mobile/data/services/app_update_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -180,6 +184,11 @@ class DashMobileApp extends StatelessWidget {
       qrCodeService: qrCodeService,
     );
 
+    // Initialize app update service
+    final appUpdateService = AppUpdateService(
+      serverUrl: 'https://operon-updates-nlwuwnlpia-uc.a.run.app',
+    );
+
     final router = buildRouter();
     return CallerOverlayBootstrap(
       child: MultiRepositoryProvider(
@@ -232,51 +241,58 @@ class DashMobileApp extends StatelessWidget {
                 appAccessRolesRepository: appAccessRolesRepository,
               ),
             ),
+            BlocProvider(
+              create: (_) => AppUpdateBloc(
+                updateService: appUpdateService,
+              ),
+            ),
           ],
-          child: NotificationTokenBootstrap(
-            child: MaterialApp.router(
-              title: 'Dash Mobile',
-              theme: buildDashTheme(),
-              routerConfig: router,
-              debugShowCheckedModeBanner: false,
-              builder: (context, child) {
-                if (kDebugMode) {
-                  debugPrint(
-                    '[MaterialApp.builder] Called with child: ${child != null ? child.runtimeType : "null"}',
-                  );
-                }
+          child: AppUpdateWrapper(
+            child: NotificationTokenBootstrap(
+              child: MaterialApp.router(
+                title: 'Dash Mobile',
+                theme: buildDashTheme(),
+                routerConfig: router,
+                debugShowCheckedModeBanner: false,
+                builder: (context, child) {
+                  if (kDebugMode) {
+                    debugPrint(
+                      '[MaterialApp.builder] Called with child: ${child != null ? child.runtimeType : "null"}',
+                    );
+                  }
 
-                // Ensure MediaQuery has a valid textScaler to prevent configuration ID errors
-                // Always wrap with a safe textScaler to avoid the -2147483648 configuration ID error
-                final mediaQuery = MediaQuery.maybeOf(context);
-                const safeTextScaler = TextScaler.linear(1.0);
+                  // Ensure MediaQuery has a valid textScaler to prevent configuration ID errors
+                  // Always wrap with a safe textScaler to avoid the -2147483648 configuration ID error
+                  final mediaQuery = MediaQuery.maybeOf(context);
+                  const safeTextScaler = TextScaler.linear(1.0);
 
-                Widget wrappedChild = child ?? const SizedBox.shrink();
+                  Widget wrappedChild = child ?? const SizedBox.shrink();
 
-                // Always wrap with MediaQuery that has a safe textScaler
-                // This prevents the "incorrect configuration id: -2147483648" error
-                if (mediaQuery != null) {
-                  wrappedChild = MediaQuery(
-                    data: mediaQuery.copyWith(textScaler: safeTextScaler),
+                  // Always wrap with MediaQuery that has a safe textScaler
+                  // This prevents the "incorrect configuration id: -2147483648" error
+                  if (mediaQuery != null) {
+                    wrappedChild = MediaQuery(
+                      data: mediaQuery.copyWith(textScaler: safeTextScaler),
+                      child: wrappedChild,
+                    );
+                  }
+
+                  final wrapped = TexturedBackground(
+                    pattern: kDebugMode
+                        ? BackgroundPattern.dotted
+                        : BackgroundPattern.grain,
+                    opacity: kDebugMode ? 0.15 : 0.03,
+                    debugMode: kDebugMode, // Enable debug in debug mode
                     child: wrappedChild,
                   );
-                }
-
-                final wrapped = TexturedBackground(
-                  pattern: kDebugMode
-                      ? BackgroundPattern.dotted
-                      : BackgroundPattern.grain,
-                  opacity: kDebugMode ? 0.15 : 0.03,
-                  debugMode: kDebugMode, // Enable debug in debug mode
-                  child: wrappedChild,
-                );
-                if (kDebugMode) {
-                  debugPrint(
-                    '[MaterialApp.builder] Returning TexturedBackground widget',
-                  );
-                }
-                return wrapped;
-              },
+                  if (kDebugMode) {
+                    debugPrint(
+                      '[MaterialApp.builder] Returning TexturedBackground widget',
+                    );
+                  }
+                  return wrapped;
+                },
+              ),
             ),
           ),
         ),

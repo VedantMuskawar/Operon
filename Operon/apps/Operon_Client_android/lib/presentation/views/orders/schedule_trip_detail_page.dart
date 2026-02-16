@@ -1163,12 +1163,12 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
             ledgerType: LedgerType.clientLedger,
             type: TransactionType
                 .debit, // Debit = client paid (decreases receivable)
-            category: TransactionCategory.clientPayment, // Manual payment
+            category: TransactionCategory.tripPayment, // Order payment
             amount: amount,
             paymentAccountId: payment['paymentAccountId'] as String?,
             paymentAccountType: payment['paymentAccountType'] as String?,
             tripId: tripId,
-            description: 'Payment - $dmText',
+            description: 'Trip Payment - $dmText',
             metadata: {
               'tripId': tripId,
               if (dmNumber != null) 'dmNumber': dmNumber,

@@ -4,6 +4,10 @@ import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/caller_id_switch_section.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/presentation/blocs/app_update/app_update_bloc.dart';
+import 'package:dash_mobile/presentation/blocs/app_update/app_update_event.dart';
+import 'package:dash_mobile/presentation/blocs/app_update/app_update_state.dart';
+import 'package:dash_mobile/presentation/widgets/update_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -37,79 +41,147 @@ class ProfilePage extends StatelessWidget {
               final versionLabel =
                   info == null ? null : '${info.version} (${info.buildNumber})';
 
-              return ProfileView(
-                user: authState.userProfile,
-                organization: organization,
-                appVersion: versionLabel,
-                fetchUserName: (authState.userProfile?.id != null &&
-                        organization?.id != null)
-                    ? () async {
-                        debugPrint('[ProfilePage] Starting fetchUserName');
-                        debugPrint('[ProfilePage] orgId: ${organization!.id}');
-                        debugPrint(
-                            '[ProfilePage] userId: ${authState.userProfile!.id}');
-                        debugPrint(
-                            '[ProfilePage] phoneNumber: ${authState.userProfile!.phoneNumber}');
-                        debugPrint(
-                            '[ProfilePage] user.displayName: ${authState.userProfile?.displayName}');
+              return BlocListener<AppUpdateBloc, AppUpdateState>(
+                listener: (context, state) {
+                  if (state is AppUpdateCheckingState) {
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        const SnackBar(
+                          content: Text('Checking for updates...'),
+                        ),
+                      );
+                  } else if (state is AppUpdateUnavailableState) {
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        const SnackBar(
+                          content: Text('You are on the latest version.'),
+                        ),
+                      );
+                  } else if (state is AppUpdateErrorState) {
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(
+                          content: Text('Update check failed: ${state.message}'),
+                        ),
+                      );
+                  } else if (state is AppUpdateAvailableState) {
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        const SnackBar(
+                          content: Text('Update available.'),
+                        ),
+                      );
+                  }
+                },
+                child: ProfileView(
+                  user: authState.userProfile,
+                  organization: organization,
+                  appVersion: versionLabel,
+                  fetchUserName: (authState.userProfile?.id != null &&
+                          organization?.id != null)
+                      ? () async {
+                          debugPrint('[ProfilePage] Starting fetchUserName');
+                          debugPrint('[ProfilePage] orgId: ${organization!.id}');
+                          debugPrint(
+                              '[ProfilePage] userId: ${authState.userProfile!.id}');
+                          debugPrint(
+                              '[ProfilePage] phoneNumber: ${authState.userProfile!.phoneNumber}');
+                          debugPrint(
+                              '[ProfilePage] user.displayName: ${authState.userProfile?.displayName}');
 
-                        try {
-                          final orgUser = await context
-                              .read<UsersRepository>()
-                              .fetchCurrentUser(
-                                orgId: organization.id,
-                                userId: authState.userProfile!.id,
-                                phoneNumber: authState.userProfile!.phoneNumber,
-                              );
+                          try {
+                            final orgUser = await context
+                                .read<UsersRepository>()
+                                .fetchCurrentUser(
+                                  orgId: organization.id,
+                                  userId: authState.userProfile!.id,
+                                  phoneNumber:
+                                      authState.userProfile!.phoneNumber,
+                                );
 
-                          debugPrint(
-                              '[ProfilePage] fetchCurrentUser returned: ${orgUser != null}');
-                          debugPrint(
-                              '[ProfilePage] orgUser?.name: ${orgUser?.name}');
-                          debugPrint(
-                              '[ProfilePage] orgUser?.id: ${orgUser?.id}');
-                          debugPrint(
-                              '[ProfilePage] orgUser?.phone: ${orgUser?.phone}');
-
-                          // Return name from organization user, or fallback to user displayName
-                          final name = orgUser?.name;
-                          if (name != null &&
-                              name.isNotEmpty &&
-                              name != 'Unnamed') {
                             debugPrint(
-                                '[ProfilePage] Returning orgUser.name: $name');
-                            return name;
+                                '[ProfilePage] fetchCurrentUser returned: ${orgUser != null}');
+                            debugPrint(
+                                '[ProfilePage] orgUser?.name: ${orgUser?.name}');
+                            debugPrint(
+                                '[ProfilePage] orgUser?.id: ${orgUser?.id}');
+                            debugPrint(
+                                '[ProfilePage] orgUser?.phone: ${orgUser?.phone}');
+
+                            // Return name from organization user, or fallback to user displayName
+                            final name = orgUser?.name;
+                            if (name != null &&
+                                name.isNotEmpty &&
+                                name != 'Unnamed') {
+                              debugPrint(
+                                  '[ProfilePage] Returning orgUser.name: $name');
+                              return name;
+                            }
+                            // Fallback to user's displayName from auth
+                            debugPrint(
+                                '[ProfilePage] Name is null/empty/Unnamed, falling back to displayName: ${authState.userProfile?.displayName}');
+                            return authState.userProfile?.displayName;
+                          } catch (e, stackTrace) {
+                            debugPrint(
+                                '[ProfilePage] Error fetching user name: $e');
+                            debugPrint(
+                                '[ProfilePage] Stack trace: $stackTrace');
+                            // On error, return user's displayName as fallback
+                            debugPrint(
+                                '[ProfilePage] Returning fallback displayName: ${authState.userProfile?.displayName}');
+                            return authState.userProfile?.displayName;
                           }
-                          // Fallback to user's displayName from auth
-                          debugPrint(
-                              '[ProfilePage] Name is null/empty/Unnamed, falling back to displayName: ${authState.userProfile?.displayName}');
-                          return authState.userProfile?.displayName;
-                        } catch (e, stackTrace) {
-                          debugPrint(
-                              '[ProfilePage] Error fetching user name: $e');
-                          debugPrint('[ProfilePage] Stack trace: $stackTrace');
-                          // On error, return user's displayName as fallback
-                          debugPrint(
-                              '[ProfilePage] Returning fallback displayName: ${authState.userProfile?.displayName}');
-                          return authState.userProfile?.displayName;
                         }
-                      }
-                    : null,
-                onChangeOrg: () {
-                  context.go('/org-selection');
-                },
-                onLogout: () {
-                  context.read<AuthBloc>().add(const AuthReset());
-                  context.go('/login');
-                },
-                onOpenUsers: canManageUsers
-                    ? () {
-                        context.go('/users');
-                      }
-                    : null,
-                extraActions: const [
-                  CallerIdSwitchSection(),
-                ],
+                      : null,
+                  onChangeOrg: () {
+                    context.go('/org-selection');
+                  },
+                  onLogout: () {
+                    context.read<AuthBloc>().add(const AuthReset());
+                    context.go('/login');
+                  },
+                  onOpenUsers: canManageUsers
+                      ? () {
+                          context.go('/users');
+                        }
+                      : null,
+                  extraActions: [
+                    DashButton(
+                      label: 'Check for updates',
+                      icon: Icons.system_update_alt_rounded,
+                      onPressed: () {
+                        final updateState =
+                            context.read<AppUpdateBloc>().state;
+
+                        if (updateState is AppUpdateAvailableState) {
+                          showDialog<void>(
+                            context: context,
+                            barrierDismissible:
+                                !updateState.updateInfo.mandatory,
+                            builder: (dialogContext) => UpdateDialog(
+                              updateInfo: updateState.updateInfo,
+                              onDismiss: () {
+                                context
+                                    .read<AppUpdateBloc>()
+                                    .add(const UpdateDismissedEvent());
+                              },
+                            ),
+                          );
+                        } else {
+                          context
+                              .read<AppUpdateBloc>()
+                              .add(const CheckUpdateEvent());
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const CallerIdSwitchSection(),
+                  ],
+                ),
               );
             },
           ),

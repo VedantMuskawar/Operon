@@ -121,9 +121,16 @@ async function getEmployeeOpeningBalance(organizationId, employeeId, currentFY) 
             const previousLedgerData = previousLedgerDoc.data();
             return previousLedgerData.currentBalance || 0;
         }
+        // Fallback: If no previous FY ledger exists, fetch from EMPLOYEE collection
+        const employeeRef = db.collection(constants_1.EMPLOYEES_COLLECTION).doc(employeeId);
+        const employeeDoc = await employeeRef.get();
+        if (employeeDoc.exists) {
+            const employeeData = employeeDoc.data();
+            return employeeData.openingBalance || 0;
+        }
     }
     catch (error) {
-        console.warn('[Employee Ledger] Error fetching previous FY balance, defaulting to 0', {
+        console.warn('[Employee Ledger] Error fetching opening balance, defaulting to 0', {
             organizationId,
             employeeId,
             currentFY,
@@ -783,6 +790,135 @@ async function updateVendorLedger(organizationId, vendorId, financialYear, trans
     return { balanceBefore, balanceAfter };
 }
 /**
+ * Update attendance when a transaction with batchId or tripWageId is deleted
+ */
+async function updateAttendanceOnTransactionDelete(employeeId, financialYear, transactionDate, batchId, tripWageId) {
+    if (!batchId && !tripWageId) {
+        return;
+    }
+    const ledgerId = `${employeeId}_${financialYear}`;
+    const yearMonth = (0, date_helpers_1.getYearMonth)(transactionDate);
+    const normalizedDate = (0, date_helpers_1.normalizeDate)(transactionDate);
+    const ledgerRef = db.collection(constants_1.EMPLOYEE_LEDGERS_COLLECTION).doc(ledgerId);
+    const attendanceRef = ledgerRef.collection('Attendance').doc(yearMonth);
+    await db.runTransaction(async (tx) => {
+        const attendanceDoc = await tx.get(attendanceRef);
+        if (!attendanceDoc.exists) {
+            console.log('[Attendance] No attendance record found for deletion', {
+                employeeId,
+                financialYear,
+                yearMonth,
+                batchId,
+                tripWageId,
+            });
+            return;
+        }
+        const attendanceData = attendanceDoc.data();
+        let dailyRecords = Array.from(attendanceData.dailyRecords || []);
+        // Find the record for this date
+        const dateIndex = dailyRecords.findIndex((record) => {
+            var _a, _b;
+            let recordDate;
+            if ((_a = record.date) === null || _a === void 0 ? void 0 : _a.toDate) {
+                recordDate = record.date.toDate();
+            }
+            else if ((_b = record.date) === null || _b === void 0 ? void 0 : _b._seconds) {
+                recordDate = new Date(record.date._seconds * 1000);
+            }
+            else if (record.date instanceof admin.firestore.Timestamp) {
+                recordDate = record.date.toDate();
+            }
+            else {
+                recordDate = new Date(record.date);
+            }
+            const norm = (0, date_helpers_1.normalizeDate)(recordDate);
+            return norm.getTime() === normalizedDate.getTime();
+        });
+        if (dateIndex < 0) {
+            console.log('[Attendance] No daily record found for date', {
+                employeeId,
+                yearMonth,
+                date: normalizedDate,
+            });
+            return;
+        }
+        const existingRecord = dailyRecords[dateIndex];
+        let updated = false;
+        if (batchId && existingRecord.batchIds) {
+            const batchIds = Array.from(existingRecord.batchIds || []);
+            const updatedBatchIds = batchIds.filter((id) => id !== batchId);
+            if (updatedBatchIds.length !== batchIds.length) {
+                existingRecord.batchIds = updatedBatchIds;
+                existingRecord.numberOfBatches = updatedBatchIds.length;
+                updated = true;
+            }
+        }
+        if (tripWageId && existingRecord.tripWageIds) {
+            const tripWageIds = Array.from(existingRecord.tripWageIds || []);
+            const updatedTripWageIds = tripWageIds.filter((id) => id !== tripWageId);
+            if (updatedTripWageIds.length !== tripWageIds.length) {
+                existingRecord.tripWageIds = updatedTripWageIds;
+                existingRecord.numberOfTrips = updatedTripWageIds.length;
+                updated = true;
+            }
+        }
+        if (!updated) {
+            console.log('[Attendance] No changes needed', {
+                employeeId,
+                yearMonth,
+                batchId,
+                tripWageId,
+            });
+            return;
+        }
+        // Check if record still has batch/trip references
+        const hasBatches = (existingRecord.batchIds || []).length > 0;
+        const hasTrips = (existingRecord.tripWageIds || []).length > 0;
+        if (!hasBatches && !hasTrips) {
+            // Remove the entire daily record
+            dailyRecords.splice(dateIndex, 1);
+        }
+        else {
+            dailyRecords[dateIndex] = existingRecord;
+        }
+        // If no daily records remain, delete the document
+        if (dailyRecords.length === 0) {
+            tx.delete(attendanceRef);
+            console.log('[Attendance] Deleted empty attendance document', {
+                employeeId,
+                yearMonth,
+            });
+            return;
+        }
+        // Recalculate totals
+        const totalDaysPresent = dailyRecords.filter((record) => record.isPresent === true).length;
+        const totalBatchesWorked = dailyRecords.reduce((sum, record) => sum + (record.numberOfBatches || 0), 0);
+        const totalTripsWorked = dailyRecords.reduce((sum, record) => sum + (record.numberOfTrips || 0), 0);
+        // Update attendance document
+        const updateData = {
+            dailyRecords,
+            totalDaysPresent,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (totalBatchesWorked > 0) {
+            updateData.totalBatchesWorked = totalBatchesWorked;
+        }
+        if (totalTripsWorked > 0) {
+            updateData.totalTripsWorked = totalTripsWorked;
+        }
+        tx.update(attendanceRef, updateData);
+        console.log('[Attendance] Updated attendance on transaction deletion', {
+            employeeId,
+            yearMonth,
+            batchId,
+            tripWageId,
+            totalDaysPresent,
+            totalBatchesWorked,
+            totalTripsWorked,
+        });
+    });
+}
+/**
  * Update employee ledger when transaction is created or cancelled
  * Returns the balanceBefore and balanceAfter values for the transaction
  */
@@ -917,7 +1053,41 @@ async function updateEmployeeLedger(organizationId, employeeId, financialYear, t
                 updatedAt: now,
             });
             // Update monthly document
-            if (monthlyDoc.exists) {
+            if (isCancellation) {
+                if (monthlyDoc.exists) {
+                    const monthlyData = monthlyDoc.data();
+                    const transactions = monthlyData.transactions || [];
+                    const filtered = transactions.filter((t) => t.transactionId !== transactionId);
+                    if (filtered.length === 0) {
+                        tx.delete(monthlyRef);
+                        console.log('[Employee Ledger] Deleted empty monthly document', {
+                            transactionId,
+                            yearMonth,
+                        });
+                    }
+                    else {
+                        const transactionCount = filtered.length;
+                        const totalCredit = filtered
+                            .filter((t) => t.type === 'credit')
+                            .reduce((sum, t) => sum + (t.amount || 0), 0);
+                        const totalDebit = filtered
+                            .filter((t) => t.type === 'debit')
+                            .reduce((sum, t) => sum + (t.amount || 0), 0);
+                        tx.update(monthlyRef, {
+                            transactions: filtered,
+                            transactionCount,
+                            totalCredit,
+                            totalDebit,
+                        });
+                        console.log('[Employee Ledger] Removed transaction from monthly array', {
+                            transactionId,
+                            yearMonth,
+                            remainingCount: filtered.length,
+                        });
+                    }
+                }
+            }
+            else if (monthlyDoc.exists) {
                 const monthlyData = monthlyDoc.data();
                 const transactions = monthlyData.transactions || [];
                 // Clean transaction data
@@ -1781,6 +1951,13 @@ exports.onTransactionDeleted = (0, firestore_1.onDocumentDeleted)(Object.assign(
             const category = transaction.category;
             if (type === 'credit' && category === 'wageCredit') {
                 await updateEmployeeAnalytics(organizationId, financialYear, transactionDate, amount, true);
+            }
+            // Update attendance if this transaction has batchId or tripWageId
+            const metadata = transaction.metadata;
+            const batchId = metadata === null || metadata === void 0 ? void 0 : metadata.batchId;
+            const tripWageId = metadata === null || metadata === void 0 ? void 0 : metadata.tripWageId;
+            if (batchId || tripWageId) {
+                await updateAttendanceOnTransactionDelete(employeeId, financialYear, transactionDate, batchId, tripWageId);
             }
         }
         else if (ledgerType === 'organizationLedger') {

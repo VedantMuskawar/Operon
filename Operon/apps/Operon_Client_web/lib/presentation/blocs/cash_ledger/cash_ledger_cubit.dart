@@ -16,10 +16,7 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
   })  : _transactionsRepository = transactionsRepository,
         _vendorsRepository = vendorsRepository,
         _organizationId = organizationId,
-        super(CashLedgerState(
-          startDate: DateTime.now(),
-          endDate: DateTime.now(),
-        ));
+        super(_createInitialState());
 
   final TransactionsRepository _transactionsRepository;
   final VendorsRepository _vendorsRepository;
@@ -29,6 +26,15 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
   final Map<String, String> _vendorNameCache = {};
 
   String get organizationId => _organizationId;
+
+  /// Initialize the Cash Ledger state with today's date.
+  static CashLedgerState _createInitialState() {
+    final today = DateTime.now();
+    return CashLedgerState(
+      startDate: DateTime(today.year, today.month, today.day),
+      endDate: DateTime(today.year, today.month, today.day, 23, 59, 59),
+    );
+  }
 
   @override
   Future<void> close() {
@@ -173,7 +179,7 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
     DateTime endDate,
   ) {
     return list.where((tx) {
-      final txDate = tx.createdAt ?? DateTime(1970);
+      final txDate = tx.effectiveDate;
       final txDateOnly = DateTime(txDate.year, txDate.month, txDate.day);
       final startOnly =
           DateTime(startDate.year, startDate.month, startDate.day);
@@ -328,8 +334,8 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
 
     List<Transaction> sortByDate(List<Transaction> list) {
       list.sort((a, b) {
-        final aDate = a.createdAt ?? DateTime(1970);
-        final bDate = b.createdAt ?? DateTime(1970);
+        final aDate = a.effectiveDate;
+        final bDate = b.effectiveDate;
         return bDate.compareTo(aDate);
       });
       return list;
@@ -446,14 +452,12 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
 
       transactionIds.add(tx.id);
 
-      final txDate = tx.createdAt;
-      if (txDate != null) {
-        if (earliestDate == null || txDate.isBefore(earliestDate)) {
-          earliestDate = txDate;
+      final txDate = tx.effectiveDate;
+      if (earliestDate == null || txDate.isBefore(earliestDate)) {
+        earliestDate = txDate;
         }
-        if (latestDate == null || txDate.isAfter(latestDate)) {
-          latestDate = txDate;
-        }
+      if (latestDate == null || txDate.isAfter(latestDate)) {
+        latestDate = txDate;
       }
     }
 
@@ -560,14 +564,12 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
 
       transactionIds.add(tx.id);
 
-      final txDate = tx.createdAt;
-      if (txDate != null) {
-        if (earliestDate == null || txDate.isBefore(earliestDate)) {
-          earliestDate = txDate;
+      final txDate = tx.effectiveDate;
+      if (earliestDate == null || txDate.isBefore(earliestDate)) {
+        earliestDate = txDate;
         }
-        if (latestDate == null || txDate.isAfter(latestDate)) {
-          latestDate = txDate;
-        }
+      if (latestDate == null || txDate.isAfter(latestDate)) {
+        latestDate = txDate;
       }
     }
 

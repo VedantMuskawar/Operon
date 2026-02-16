@@ -60,6 +60,7 @@ class EmployeeWagesDataSource {
       category: TransactionCategory.salaryCredit,
       amount: amount,
       createdBy: createdBy,
+      transactionDate: paymentDate,
       createdAt: paymentDate,
       updatedAt: paymentDate,
       financialYear: financialYear,
@@ -105,6 +106,7 @@ class EmployeeWagesDataSource {
       category: TransactionCategory.wageCredit,
       amount: amount,
       createdBy: createdBy,
+      transactionDate: paymentDate,
       createdAt: paymentDate,
       updatedAt: paymentDate,
       financialYear: financialYear,
@@ -156,6 +158,7 @@ class EmployeeWagesDataSource {
       category: TransactionCategory.bonus,
       amount: amount,
       createdBy: createdBy,
+      transactionDate: paymentDate,
       createdAt: paymentDate,
       updatedAt: paymentDate,
       financialYear: financialYear,
@@ -298,6 +301,35 @@ class EmployeeWagesDataSource {
     return DateTime.now(); // Default fallback
   }
 
+  /// Helper to extract transaction date from raw document data
+  DateTime _getDocTransactionDate(Map<String, dynamic> data) {
+    final transactionDate = data['transactionDate'];
+    if (transactionDate != null) {
+      try {
+        return (transactionDate as dynamic).toDate() as DateTime;
+      } catch (_) {
+        if (transactionDate is DateTime) return transactionDate;
+      }
+    }
+    final paymentDate = data['paymentDate'];
+    if (paymentDate != null) {
+      try {
+        return (paymentDate as dynamic).toDate() as DateTime;
+      } catch (_) {
+        if (paymentDate is DateTime) return paymentDate;
+      }
+    }
+    final createdAt = data['createdAt'];
+    if (createdAt != null) {
+      try {
+        return (createdAt as dynamic).toDate() as DateTime;
+      } catch (_) {
+        if (createdAt is DateTime) return createdAt;
+      }
+    }
+    return DateTime.now();
+  }
+
   /// Fetch employee transactions
   Future<List<Transaction>> fetchEmployeeTransactions({
     required String organizationId,
@@ -341,8 +373,7 @@ class EmployeeWagesDataSource {
     // Apply date filters if provided
     if (startDate != null || endDate != null) {
       transactions = transactions.where((tx) {
-        final txDate = tx.createdAt;
-        if (txDate == null) return false;
+        final txDate = tx.effectiveDate;
         if (startDate != null && txDate.isBefore(startDate)) return false;
         if (endDate != null && txDate.isAfter(endDate)) return false;
         return true;
@@ -391,9 +422,20 @@ class EmployeeWagesDataSource {
     }
 
     final snapshot = await query.get();
-    return snapshot.docs
+    var transactions = snapshot.docs
         .map((doc) => Transaction.fromJson(doc.data(), doc.id))
         .toList();
+
+    if (startDate != null || endDate != null) {
+      transactions = transactions.where((tx) {
+        final txDate = tx.effectiveDate;
+        if (startDate != null && txDate.isBefore(startDate)) return false;
+        if (endDate != null && txDate.isAfter(endDate)) return false;
+        return true;
+      }).toList();
+    }
+
+    return transactions;
   }
 
   /// Check if salary already credited for a month
@@ -422,9 +464,7 @@ class EmployeeWagesDataSource {
 
     // Filter by date range on client side
     final matchingTransactions = snapshot.docs.where((doc) {
-      final createdAt = doc.data()['createdAt'] as Timestamp?;
-      if (createdAt == null) return false;
-      final txDate = createdAt.toDate();
+      final txDate = _getDocTransactionDate(doc.data());
       return txDate.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) &&
           txDate.isBefore(endOfMonth.add(const Duration(seconds: 1)));
     });
@@ -456,6 +496,10 @@ class EmployeeWagesDataSource {
 
     final employeeIds = <String>{};
     for (final doc in snapshot.docs) {
+      final txDate = _getDocTransactionDate(doc.data());
+      if (txDate.isBefore(startOfMonth) || txDate.isAfter(endOfMonth)) {
+        continue;
+      }
       final employeeId = doc.data()['employeeId'] as String?;
       if (employeeId != null && employeeId.isNotEmpty) {
         employeeIds.add(employeeId);
@@ -488,9 +532,7 @@ class EmployeeWagesDataSource {
         .get();
 
     final matchingTransactions = snapshot.docs.where((doc) {
-      final createdAt = doc.data()['createdAt'] as Timestamp?;
-      if (createdAt == null) return false;
-      final txDate = createdAt.toDate();
+      final txDate = _getDocTransactionDate(doc.data());
       return txDate.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) &&
           txDate.isBefore(endOfMonth.add(const Duration(seconds: 1)));
     });

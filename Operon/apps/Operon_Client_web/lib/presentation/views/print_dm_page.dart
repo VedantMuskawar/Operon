@@ -4,7 +4,6 @@ import 'package:dash_web/data/services/js_util_bridge.dart' as js_util;
 import 'package:core_ui/core_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 import 'package:js/js.dart';
 

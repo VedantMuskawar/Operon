@@ -315,7 +315,7 @@ export const processProductionBatchWages = onCall(
             category: 'wageCredit',
             amount: wagePerEmployee,
             financialYear,
-            paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate),
+            transactionDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate),
             description: `Production Batch #${batchId}`,
             metadata: {
               sourceType: 'productionBatch',

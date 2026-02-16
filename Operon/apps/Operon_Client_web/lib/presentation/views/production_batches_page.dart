@@ -4,6 +4,7 @@ import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
+import 'package:dash_web/data/repositories/raw_materials_repository.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/production_batches/production_batches_cubit.dart';
 import 'package:dash_web/presentation/blocs/production_batches/production_batches_state.dart';
@@ -89,6 +90,7 @@ class _ProductionBatchesContent extends StatefulWidget {
 
 class _ProductionBatchesContentState extends State<_ProductionBatchesContent> {
   int _sectionIndex = 0;
+  final WeeklyLedgerActionController _ledgerActions = WeeklyLedgerActionController();
 
   @override
   Widget build(BuildContext context) {
@@ -107,33 +109,73 @@ class _ProductionBatchesContentState extends State<_ProductionBatchesContent> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: FloatingNavBar(
-                  items: const [
-                    NavBarItem(
-                      icon: Icons.inventory_2_outlined,
-                      label: 'Batches',
-                      heroTag: 'prod_batches',
-                    ),
-                    NavBarItem(
-                      icon: Icons.calendar_view_week_outlined,
-                      label: 'Weekly Ledger',
-                      heroTag: 'prod_weekly_ledger',
-                    ),
-                  ],
-                  currentIndex: _sectionIndex,
-                  onItemTapped: (index) => setState(() => _sectionIndex = index),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: FloatingNavBar(
+                    items: const [
+                      NavBarItem(
+                        icon: Icons.inventory_2_outlined,
+                        label: 'Batches',
+                        heroTag: 'prod_batches',
+                      ),
+                      NavBarItem(
+                        icon: Icons.calendar_view_week_outlined,
+                        label: 'Weekly Ledger',
+                        heroTag: 'prod_weekly_ledger',
+                      ),
+                    ],
+                    currentIndex: _sectionIndex,
+                    onItemTapped: (index) => setState(() => _sectionIndex = index),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _sectionIndex == 0
+                      ? _FiltersBar(
+                          trailing: DashButton(
+                            icon: Icons.add,
+                            label: 'New Entry',
+                            onPressed: () {
+                              if (organization != null) {
+                                final cubit =
+                                    context.read<ProductionBatchesCubit>();
+                                final employeesRepo =
+                                    context.read<EmployeesRepository>();
+                                final productsRepo =
+                                    context.read<ProductsRepository>();
+                                final wageSettingsRepo =
+                                    context.read<WageSettingsRepository>();
+                                showDialog(
+                                  context: context,
+                                  builder: (dialogContext) => BlocProvider.value(
+                                    value: cubit,
+                                    child: ProductionBatchForm(
+                                      organizationId: organization.id,
+                                      employeesRepository: employeesRepo,
+                                      productsRepository: productsRepo,
+                                      rawMaterialsRepository:
+                                          context.read<RawMaterialsRepository>(),
+                                      wageSettingsRepository: wageSettingsRepo,
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
             ),
           ),
           _sectionIndex == 0
               ? _BatchesSection(organization: organization)
-              : const Padding(
-                  padding: EdgeInsets.fromLTRB(24, 0, 24, 24),
-                  child: _WeeklyLedgerBlock(),
+              : Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: _WeeklyLedgerBlock(actionsController: _ledgerActions),
                 ),
         ],
       ),
@@ -203,34 +245,6 @@ class _BatchesSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _FiltersBar(
-                trailing: DashButton(
-                  icon: Icons.add,
-                  label: 'New Batch',
-                  onPressed: () {
-                    if (organization != null) {
-                      final cubit = context.read<ProductionBatchesCubit>();
-                      final employeesRepo = context.read<EmployeesRepository>();
-                      final productsRepo = context.read<ProductsRepository>();
-                      final wageSettingsRepo =
-                          context.read<WageSettingsRepository>();
-                      showDialog(
-                        context: context,
-                        builder: (dialogContext) => BlocProvider.value(
-                          value: cubit,
-                          child: ProductionBatchForm(
-                            organizationId: organization.id,
-                            employeesRepository: employeesRepo,
-                            productsRepository: productsRepo,
-                            wageSettingsRepository: wageSettingsRepo,
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
               if (filteredBatches.isEmpty)
                 EmptyState(
                   icon: Icons.inventory_2_outlined,
@@ -288,6 +302,31 @@ class _FiltersBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ProductionBatchesCubit, ProductionBatchesState>(
       builder: (context, state) {
+        final selectedDate = state.startDate;
+        Future<void> pickDate() async {
+          final now = DateTime.now();
+          final picked = await showDatePicker(
+            context: context,
+            initialDate: selectedDate ?? now,
+            firstDate: DateTime(now.year - 2),
+            lastDate: DateTime(now.year + 1),
+            builder: (context, child) {
+              return Theme(
+                data: DashTheme.light(),
+                child: child!,
+              );
+            },
+          );
+
+          if (picked != null) {
+            final dayStart = DateTime(picked.year, picked.month, picked.day);
+            context.read<ProductionBatchesCubit>().setDateRange(
+                  dayStart,
+                  dayStart,
+                );
+          }
+        }
+
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -399,16 +438,25 @@ class _FiltersBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
-              // Date Range (simplified - can be enhanced with date range picker)
+              // Single Date Picker
               DashButton(
-                icon: Icons.date_range,
-                label: 'Date Range',
-                onPressed: () {
-                  // Feature planned: Date range picker for filtering batches
-                  DashSnackbar.show(context, message: 'Date range picker coming soon');
-                },
+                icon: Icons.event,
+                label: selectedDate == null
+                    ? 'Select Date'
+                    : _formatDate(selectedDate),
+                onPressed: pickDate,
                 variant: DashButtonVariant.text,
               ),
+              if (selectedDate != null) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18, color: Colors.white70),
+                  tooltip: 'Clear date filter',
+                  onPressed: () {
+                    context.read<ProductionBatchesCubit>().clearDateRange();
+                  },
+                ),
+              ],
               if (trailing != null) ...[
                 const SizedBox(width: 16),
                 trailing!,
@@ -432,10 +480,16 @@ class _FiltersBar extends StatelessWidget {
         return 'Processed';
     }
   }
+
+  static String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
 }
 
 class _WeeklyLedgerBlock extends StatelessWidget {
-  const _WeeklyLedgerBlock();
+  const _WeeklyLedgerBlock({required this.actionsController});
+
+  final WeeklyLedgerActionController actionsController;
 
   @override
   Widget build(BuildContext context) {
@@ -446,6 +500,7 @@ class _WeeklyLedgerBlock extends StatelessWidget {
     return WeeklyLedgerSection(
       organizationId: organization.id,
       weeklyLedgerCubit: cubit,
+      actionsController: actionsController,
     );
   }
 }

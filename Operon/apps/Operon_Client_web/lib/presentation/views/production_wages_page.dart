@@ -4,6 +4,7 @@ import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
+import 'package:dash_web/data/repositories/raw_materials_repository.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/production_batches/production_batches_cubit.dart';
 import 'package:dash_web/presentation/blocs/production_batches/production_batches_state.dart';
@@ -162,6 +163,8 @@ Widget _buildEmptyState(
                 organizationId: organization.id,
                 employeesRepository: employeesRepo,
                 productsRepository: productsRepo,
+                rawMaterialsRepository:
+                    context.read<RawMaterialsRepository>(),
                 wageSettingsRepository: wageSettingsRepo,
               ),
             ),
@@ -239,15 +242,16 @@ class _ProductionWagesContent extends StatelessWidget {
                           final screenWidth = MediaQuery.of(context).size.width;
                           final isTwoColumn = screenWidth >= 1024;
                           final crossAxisCount = isTwoColumn ? 2 : 1;
-                          
+
                           // Calculate aspect ratio (width/height) based on layout
                           // Cards typically have more content vertically, so we estimate:
                           // - Single column: ~1.0 (square-ish to tall)
                           // - Two columns: ~1.3-1.4 (wider relative to height)
                           final aspectRatio = isTwoColumn ? 1.35 : 1.0;
-                          
+
                           return GridView.builder(
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: crossAxisCount,
                               crossAxisSpacing: 16,
                               mainAxisSpacing: 16,
@@ -260,17 +264,24 @@ class _ProductionWagesContent extends StatelessWidget {
                               return ProductionBatchCard(
                                 batch: batch,
                                 onTap: () {
-                                  context.read<ProductionBatchesCubit>().setSelectedBatch(batch);
+                                  context
+                                      .read<ProductionBatchesCubit>()
+                                      .setSelectedBatch(batch);
                                   showDialog(
                                     context: context,
-                                    builder: (dialogContext) => BlocProvider.value(
-                                      value: context.read<ProductionBatchesCubit>(),
+                                    builder: (dialogContext) =>
+                                        BlocProvider.value(
+                                      value: context
+                                          .read<ProductionBatchesCubit>(),
                                       child: ProductionBatchDetailModal(
                                         batch: batch,
                                         organizationId: organization?.id ?? '',
-                                        employeesRepository: context.read<EmployeesRepository>(),
-                                        productsRepository: context.read<ProductsRepository>(),
-                                        wageSettingsRepository: context.read<WageSettingsRepository>(),
+                                        employeesRepository:
+                                            context.read<EmployeesRepository>(),
+                                        productsRepository:
+                                            context.read<ProductsRepository>(),
+                                        wageSettingsRepository: context
+                                            .read<WageSettingsRepository>(),
                                       ),
                                     ),
                                   );
@@ -428,37 +439,53 @@ class _WorkflowTabs extends StatelessWidget {
                 label: 'All',
                 isSelected: state.selectedTab == WorkflowTab.all,
                 count: state.batches.length,
-                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.all),
+                onTap: () => context
+                    .read<ProductionBatchesCubit>()
+                    .setSelectedTab(WorkflowTab.all),
               ),
               _TabButton(
                 label: 'Needs Action',
                 isSelected: state.selectedTab == WorkflowTab.needsAction,
                 count: state.needsActionCount,
-                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.needsAction),
+                onTap: () => context
+                    .read<ProductionBatchesCubit>()
+                    .setSelectedTab(WorkflowTab.needsAction),
               ),
               _TabButton(
                 label: 'Recorded',
                 isSelected: state.selectedTab == WorkflowTab.recorded,
                 count: state.pendingCalculations,
-                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.recorded),
+                onTap: () => context
+                    .read<ProductionBatchesCubit>()
+                    .setSelectedTab(WorkflowTab.recorded),
               ),
               _TabButton(
                 label: 'Calculated',
                 isSelected: state.selectedTab == WorkflowTab.calculated,
                 count: state.pendingApprovals,
-                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.calculated),
+                onTap: () => context
+                    .read<ProductionBatchesCubit>()
+                    .setSelectedTab(WorkflowTab.calculated),
               ),
               _TabButton(
                 label: 'Approved',
                 isSelected: state.selectedTab == WorkflowTab.approved,
-                count: state.batches.where((b) => b.status == ProductionBatchStatus.approved).length,
-                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.approved),
+                count: state.batches
+                    .where((b) => b.status == ProductionBatchStatus.approved)
+                    .length,
+                onTap: () => context
+                    .read<ProductionBatchesCubit>()
+                    .setSelectedTab(WorkflowTab.approved),
               ),
               _TabButton(
                 label: 'Processed',
                 isSelected: state.selectedTab == WorkflowTab.processed,
-                count: state.batches.where((b) => b.status == ProductionBatchStatus.processed).length,
-                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.processed),
+                count: state.batches
+                    .where((b) => b.status == ProductionBatchStatus.processed)
+                    .length,
+                onTap: () => context
+                    .read<ProductionBatchesCubit>()
+                    .setSelectedTab(WorkflowTab.processed),
               ),
             ],
           ),
@@ -493,7 +520,7 @@ class _TabButton extends StatelessWidget {
             color: isSelected
                 ? AuthColors.primary.withValues(alpha: 0.2)
                 : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
             child: Row(
@@ -502,14 +529,18 @@ class _TabButton extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: isSelected ? AuthColors.textMain : AuthColors.textMainWithOpacity(0.7),
+                    color: isSelected
+                        ? AuthColors.textMain
+                        : AuthColors.textMainWithOpacity(0.7),
                     fontSize: 14,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? AuthColors.primary
@@ -519,7 +550,9 @@ class _TabButton extends StatelessWidget {
                   child: Text(
                     count.toString(),
                     style: TextStyle(
-                      color: isSelected ? AuthColors.textMain : AuthColors.textMainWithOpacity(0.7),
+                      color: isSelected
+                          ? AuthColors.textMain
+                          : AuthColors.textMainWithOpacity(0.7),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -537,7 +570,8 @@ class _TabButton extends StatelessWidget {
 class _FiltersBar extends StatelessWidget {
   const _FiltersBar();
 
-  Future<void> _showDateRangePicker(BuildContext context, {bool isSecond = false}) async {
+  Future<void> _showDateRangePicker(BuildContext context,
+      {bool isSecond = false}) async {
     final cubit = context.read<ProductionBatchesCubit>();
     final state = cubit.state;
 
@@ -653,7 +687,8 @@ class _FiltersBar extends StatelessWidget {
                     hintStyle: TextStyle(
                       color: AuthColors.textMainWithOpacity(0.5),
                     ),
-                    prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
+                    prefixIcon:
+                        const Icon(Icons.search, color: AuthColors.textSub),
                     filled: true,
                     fillColor: AuthColors.textMainWithOpacity(0.05),
                     border: OutlineInputBorder(
@@ -693,7 +728,8 @@ class _FiltersBar extends StatelessWidget {
                     final cubit = context.read<ProductionBatchesCubit>();
                     final employeesRepo = context.read<EmployeesRepository>();
                     final productsRepo = context.read<ProductsRepository>();
-                    final wageSettingsRepo = context.read<WageSettingsRepository>();
+                    final wageSettingsRepo =
+                        context.read<WageSettingsRepository>();
                     showDialog(
                       context: context,
                       builder: (dialogContext) => BlocProvider.value(
@@ -702,6 +738,8 @@ class _FiltersBar extends StatelessWidget {
                           organizationId: organization.id,
                           employeesRepository: employeesRepo,
                           productsRepository: productsRepo,
+                          rawMaterialsRepository:
+                              context.read<RawMaterialsRepository>(),
                           wageSettingsRepository: wageSettingsRepo,
                         ),
                       ),
@@ -727,4 +765,3 @@ class _FiltersBar extends StatelessWidget {
     );
   }
 }
-

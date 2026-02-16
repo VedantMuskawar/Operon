@@ -54,6 +54,7 @@ import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 List<int> computeHomeSections(AppAccessRole? appAccessRole) {
   final visible = <int>[0];
@@ -63,7 +64,8 @@ List<int> computeHomeSections(AppAccessRole? appAccessRole) {
   if (appAccessRole.canAccessSection('ordersMap')) visible.add(3);
   if (appAccessRole.canAccessSection('analyticsDashboard')) visible.add(4);
   // Cash Ledger: same users who can access analytics or financial transactions
-  if (appAccessRole.canAccessSection('analyticsDashboard') ||
+  if (appAccessRole.canAccessSection('cashLedger') ||
+      appAccessRole.canAccessSection('analyticsDashboard') ||
       appAccessRole.canAccessPage('financialTransactions')) {
     visible.add(5);
   }
@@ -247,52 +249,71 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
               isOpen: _isProfileOpen,
               onClose: () => setState(() => _isProfileOpen = false),
               appName: 'Operon',
-              child: ProfileView(
-                user: authState.userProfile,
-                organization: organization,
-                fetchUserName: (authState.userProfile?.id != null && organization?.id != null)
-                    ? () async {
-                        try {
-                          final orgUser = await context.read<UsersRepository>().fetchCurrentUser(
-                            orgId: organization!.id,
-                            userId: authState.userProfile!.id,
-                            phoneNumber: authState.userProfile!.phoneNumber,
-                          );
-                          if (!context.mounted) return null;
-                          // Return the name field from OrganizationUser (which maps from 'user_name' in DB)
-                          final name = orgUser?.name;
-                          if (name != null && name.isNotEmpty && name != 'Unnamed') {
-                            return name;
+              child: FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snapshot) {
+                  final info = snapshot.data;
+                  final versionLabel =
+                      info == null ? null : '${info.version} (${info.buildNumber})';
+
+                  return ProfileView(
+                    user: authState.userProfile,
+                    organization: organization,
+                    appVersion: versionLabel,
+                    fetchUserName:
+                        (authState.userProfile?.id != null &&
+                                organization?.id != null)
+                            ? () async {
+                                try {
+                                  final orgUser = await context
+                                      .read<UsersRepository>()
+                                      .fetchCurrentUser(
+                                        orgId: organization!.id,
+                                        userId: authState.userProfile!.id,
+                                        phoneNumber:
+                                            authState.userProfile!.phoneNumber,
+                                      );
+                                  if (!context.mounted) return null;
+                                  // Return the name field from OrganizationUser (which maps from 'user_name' in DB)
+                                  final name = orgUser?.name;
+                                  if (name != null &&
+                                      name.isNotEmpty &&
+                                      name != 'Unnamed') {
+                                    return name;
+                                  }
+                                  // Fallback to user's displayName from auth, then generic fallback
+                                  return authState.userProfile?.displayName ??
+                                      'User';
+                                } catch (e) {
+                                  return authState.userProfile?.displayName ??
+                                      'User';
+                                }
+                              }
+                            : null,
+                    onChangeOrg: () {
+                      setState(() => _isProfileOpen = false);
+                      context.go('/org-selection');
+                    },
+                    onLogout: () {
+                      context.read<AuthBloc>().add(const AuthReset());
+                      context.go('/login');
+                    },
+                    onOpenUsers: canManageUsers
+                        ? () {
+                            setState(() => _isProfileOpen = false);
+                            _contentPage = ContentPage.users;
                           }
-                          // Fallback to user's displayName from auth, then generic fallback
-                          return authState.userProfile?.displayName ?? 'User';
-                        } catch (e) {
-                          return authState.userProfile?.displayName ?? 'User';
-                        }
-                      }
-                    : null,
-                onChangeOrg: () {
-                  setState(() => _isProfileOpen = false);
-                  context.go('/org-selection');
+                        : null,
+                    extraActions: isAdminRole && organization?.id != null
+                        ? [
+                            WhatsappMessagesSwitchSection(
+                              orgId: organization!.id,
+                              isAdmin: true,
+                            ),
+                          ]
+                        : null,
+                  );
                 },
-                onLogout: () {
-                  context.read<AuthBloc>().add(const AuthReset());
-                  context.go('/login');
-                },
-                onOpenUsers: canManageUsers
-                    ? () {
-                        setState(() => _isProfileOpen = false);
-                        _contentPage = ContentPage.users;
-                      }
-                    : null,
-                extraActions: isAdminRole && organization?.id != null
-                    ? [
-                        WhatsappMessagesSwitchSection(
-                          orgId: organization!.id,
-                          isAdmin: true,
-                        ),
-                      ]
-                    : null,
               ),
             ),
 

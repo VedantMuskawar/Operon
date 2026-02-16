@@ -935,7 +935,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
         flex: 2,
         alignment: Alignment.center,
         cellBuilder: (context, transaction, index) {
-          final date = transaction.createdAt ?? DateTime.now();
+          final date = transaction.effectiveDate;
           return Text(
             _formatDate(date),
             style: const TextStyle(

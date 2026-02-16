@@ -1,19 +1,27 @@
 import 'package:dash_web/domain/entities/weekly_ledger_entry.dart';
+import 'package:dash_web/domain/entities/weekly_ledger_matrix.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart' show PdfGoogleFonts;
 
 /// Generates PDF from weekly ledger table data.
 class WeeklyLedgerPdfGenerator {
   static String _formatDate(DateTime date) => DateFormat('dd MMM yyyy').format(date);
   static String _formatCurrency(double amount) => '₹${amount.toStringAsFixed(2)}';
 
-  static pw.Document generate({
+  static Future<pw.Document> generate({
     required DateTime weekStart,
     required DateTime weekEnd,
     required List<ProductionLedgerEntry> productionEntries,
     required List<TripLedgerEntry> tripEntries,
-  }) {
+    required Map<String, double> debitByEmployeeId,
+    required Map<String, double> currentBalanceByEmployeeId,
+  }) async {
+    final fonts = _PdfFonts(
+      regular: await PdfGoogleFonts.notoSansRegular(),
+      bold: await PdfGoogleFonts.notoSansBold(),
+    );
     final pdf = pw.Document();
     final weekRange = '${_formatDate(weekStart)} - ${_formatDate(weekEnd)}';
 
@@ -41,13 +49,29 @@ class WeeklyLedgerPdfGenerator {
           if (productionEntries.isNotEmpty) ...[
             pw.Text('Productions', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 8),
-            _buildProductionsTable(productionEntries),
+            _buildMatrixTable(
+              fonts,
+              buildProductionLedgerMatrix(
+                productionEntries,
+                debitByEmployeeId: debitByEmployeeId,
+                currentBalanceByEmployeeId: currentBalanceByEmployeeId,
+              ),
+              detailHeader: 'Production',
+            ),
             pw.SizedBox(height: 24),
           ],
           if (tripEntries.isNotEmpty) ...[
             pw.Text('Trips', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 8),
-            _buildTripsTable(tripEntries),
+            _buildMatrixTable(
+              fonts,
+              buildTripLedgerMatrix(
+                tripEntries,
+                debitByEmployeeId: debitByEmployeeId,
+                currentBalanceByEmployeeId: currentBalanceByEmployeeId,
+              ),
+              detailHeader: 'No. of Trips',
+            ),
           ],
         ],
       ),
@@ -56,172 +80,105 @@ class WeeklyLedgerPdfGenerator {
     return pdf;
   }
 
-  static pw.Widget _buildProductionsTable(List<ProductionLedgerEntry> entries) {
-    final maxCols = entries.isEmpty ? 0 : entries.map((e) => e.employeeNames.length).reduce((a, b) => a > b ? a : b);
-    final colCount = 2 + (maxCols > 0 ? maxCols : 1) + 2;
+  static pw.Widget _buildMatrixTable(
+    _PdfFonts fonts,
+    WeeklyLedgerMatrix matrix, {
+    required String detailHeader,
+  }) {
+    final dateCount = matrix.dates.length;
+    final colCount = 2 + (dateCount * 2) + 3;
 
     return pw.Table(
       border: pw.TableBorder.all(width: 0.5, color: PdfColors.grey400),
       columnWidths: {
-        for (int i = 0; i < colCount; i++)
-          i: i == 0
-              ? const pw.FlexColumnWidth(1.2)
-              : i == 1
-                  ? const pw.FlexColumnWidth(1.5)
-                  : i < 2 + maxCols
-                      ? const pw.FlexColumnWidth(1)
-                      : i == colCount - 2
-                          ? const pw.FlexColumnWidth(2)
-                          : const pw.FlexColumnWidth(0.8),
+        0: const pw.FlexColumnWidth(2.2),
+        1: const pw.FlexColumnWidth(1.4),
+        for (int i = 0; i < dateCount * 2; i++)
+          2 + i: i.isEven ? const pw.FlexColumnWidth(2) : const pw.FlexColumnWidth(1),
+        colCount - 3: const pw.FlexColumnWidth(1),
+        colCount - 2: const pw.FlexColumnWidth(1.2),
+        colCount - 1: const pw.FlexColumnWidth(1.4),
       },
       children: [
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: PdfColors.grey300),
           children: [
-            _cell('Date', header: true),
-            _cell('Batch No.', header: true),
-            ...List.generate(maxCols > 0 ? maxCols : 1, (_) => _cell('', header: true)),
-            _cell('Description', header: true),
-            _cell('Amount', header: true),
+            _cell(fonts, 'EMPLOYEES NAMES', header: true),
+            _cell(fonts, 'Opening Balance', header: true),
+            for (final date in matrix.dates) ...[
+              _cell(fonts, _formatDate(date), header: true),
+              _cell(fonts, '', header: true),
+            ],
+            _cell(fonts, 'Debit', header: true),
+            _cell(fonts, 'Total', header: true),
+            _cell(fonts, 'Current Balance', header: true),
           ],
         ),
-        for (final entry in entries) ..._productionEntryRows(entry, maxCols),
-      ],
-    );
-  }
-
-  static List<pw.TableRow> _productionEntryRows(ProductionLedgerEntry entry, int maxCols) {
-    final rows = <pw.TableRow>[];
-    final n = entry.employeeNames.length;
-
-    rows.add(
-      pw.TableRow(
-        children: [
-          _cell(_formatDate(entry.date)),
-          _cell(entry.batchNo),
-          ...List.generate(maxCols, (i) => _cell(i < n ? entry.employeeNames[i] : '')),
-          _cell(''),
-          _cell(''),
-        ],
-      ),
-    );
-    rows.add(
-      pw.TableRow(
-        decoration: const pw.BoxDecoration(color: PdfColors.grey100),
-        children: [
-          _cell(''),
-          _cell(''),
-          ...List.generate(maxCols, (i) => _cell(i < n ? _formatCurrency(entry.employeeBalances[i]) : '')),
-          _cell(''),
-          _cell(''),
-        ],
-      ),
-    );
-    for (final tx in entry.salaryTransactions) {
-      rows.add(
         pw.TableRow(
+          decoration: const pw.BoxDecoration(color: PdfColors.grey200),
           children: [
-            _cell(''),
-            _cell(''),
-            ...List.generate(maxCols, (_) => _cell('')),
-            _cell(tx.description, small: true),
-            _cell(_formatCurrency(tx.amount), small: true),
+            _cell(fonts, '', header: true),
+            _cell(fonts, '', header: true),
+            for (int i = 0; i < dateCount; i++) ...[
+              _cell(fonts, detailHeader, header: true),
+              _cell(fonts, 'Amount', header: true),
+            ],
+            _cell(fonts, '', header: true),
+            _cell(fonts, '', header: true),
+            _cell(fonts, '', header: true),
           ],
         ),
-      );
-    }
-    return rows;
-  }
-
-  static pw.Widget _buildTripsTable(List<TripLedgerEntry> entries) {
-    final maxCols = entries.isEmpty ? 0 : entries.map((e) => e.employeeNames.length).reduce((a, b) => a > b ? a : b);
-    final colCount = 2 + (maxCols > 0 ? maxCols : 1) + 2;
-
-    return pw.Table(
-      border: pw.TableBorder.all(width: 0.5, color: PdfColors.grey400),
-      columnWidths: {
-        for (int i = 0; i < colCount; i++)
-          i: i == 0
-              ? const pw.FlexColumnWidth(1.2)
-              : i == 1
-                  ? const pw.FlexColumnWidth(1.8)
-                  : i < 2 + maxCols
-                      ? const pw.FlexColumnWidth(1)
-                      : i == colCount - 2
-                          ? const pw.FlexColumnWidth(2)
-                          : const pw.FlexColumnWidth(0.8),
-      },
-      children: [
+        for (final row in matrix.rows)
+          pw.TableRow(
+            children: [
+              _cell(fonts, row.employeeName),
+              _cell(fonts, _formatCurrency(row.openingBalance)),
+              for (final date in matrix.dates) ...[
+                _cell(fonts, row.cells[date]?.detailsText ?? '—', small: true),
+                _cell(fonts, _formatCurrency(row.cells[date]?.amount ?? 0.0)),
+              ],
+              _cell(fonts, _formatCurrency(row.debitTotal)),
+              _cell(fonts, _formatCurrency(row.totalAmount)),
+              _cell(fonts, _formatCurrency(row.currentBalance)),
+            ],
+          ),
         pw.TableRow(
           decoration: const pw.BoxDecoration(color: PdfColors.grey300),
           children: [
-            _cell('Date', header: true),
-            _cell('Vehicle No. (Trips)', header: true),
-            ...List.generate(maxCols > 0 ? maxCols : 1, (_) => _cell('', header: true)),
-            _cell('Description', header: true),
-            _cell('Amount', header: true),
+            _cell(fonts, 'TOTAL', header: true),
+            _cell(fonts, _formatCurrency(matrix.totalOpeningBalance), header: true),
+            for (final date in matrix.dates) ...[
+              _cell(fonts, '', header: true),
+              _cell(fonts, _formatCurrency(matrix.totalsByDate[date] ?? 0.0), header: true),
+            ],
+            _cell(fonts, _formatCurrency(matrix.totalDebit), header: true),
+            _cell(fonts, _formatCurrency(matrix.grandTotal), header: true),
+            _cell(fonts, _formatCurrency(matrix.totalCurrentBalance), header: true),
           ],
         ),
-        for (final entry in entries) ..._tripEntryRows(entry, maxCols),
       ],
     );
   }
 
-  static List<pw.TableRow> _tripEntryRows(TripLedgerEntry entry, int maxCols) {
-    final rows = <pw.TableRow>[];
-    final n = entry.employeeNames.length;
-    final vehicleLabel = '${entry.vehicleNo} (${entry.tripCount})';
-
-    rows.add(
-      pw.TableRow(
-        children: [
-          _cell(_formatDate(entry.date)),
-          _cell(vehicleLabel),
-          ...List.generate(maxCols, (i) => _cell(i < n ? entry.employeeNames[i] : '')),
-          _cell(''),
-          _cell(''),
-        ],
-      ),
-    );
-    rows.add(
-      pw.TableRow(
-        decoration: const pw.BoxDecoration(color: PdfColors.grey100),
-        children: [
-          _cell(''),
-          _cell(''),
-          ...List.generate(maxCols, (i) => _cell(i < n ? _formatCurrency(entry.employeeBalances[i]) : '')),
-          _cell(''),
-          _cell(''),
-        ],
-      ),
-    );
-    for (final tx in entry.salaryTransactions) {
-      rows.add(
-        pw.TableRow(
-          children: [
-            _cell(''),
-            _cell(''),
-            ...List.generate(maxCols, (_) => _cell('')),
-            _cell(tx.description, small: true),
-            _cell(_formatCurrency(tx.amount), small: true),
-          ],
-        ),
-      );
-    }
-    return rows;
-  }
-
-  static pw.Widget _cell(String text, {bool header = false, bool small = false}) {
+  static pw.Widget _cell(_PdfFonts fonts, String text, {bool header = false, bool small = false}) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
       child: pw.Text(
         text,
         style: pw.TextStyle(
+          font: header ? fonts.bold : fonts.regular,
           fontSize: small ? 8 : (header ? 9 : 10),
-          fontWeight: header ? pw.FontWeight.bold : pw.FontWeight.normal,
         ),
+        textAlign: pw.TextAlign.center,
         maxLines: 2,
       ),
     );
   }
+}
+
+class _PdfFonts {
+  const _PdfFonts({required this.regular, required this.bold});
+
+  final pw.Font regular;
+  final pw.Font bold;
 }

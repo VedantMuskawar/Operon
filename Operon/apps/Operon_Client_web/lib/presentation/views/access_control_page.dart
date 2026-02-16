@@ -21,6 +21,8 @@ const _sections = [
       'ordersMap', 'Orders Map', Icons.map_outlined, AuthColors.successVariant),
   _ItemInfo('analyticsDashboard', 'Analytics', Icons.analytics_outlined,
       AuthColors.warning),
+  _ItemInfo('cashLedger', 'Cash Ledger', Icons.event_available_outlined,
+    AuthColors.success),
 ];
 
 // Pages (includes financialTransactions, vendors, rawMaterials, geofences)

@@ -281,7 +281,7 @@ exports.processProductionBatchWages = (0, https_1.onCall)(function_config_1.CALL
                 const employeeName = employeeNameMap[employeeId];
                 const transactionData = Object.assign(Object.assign({ transactionId,
                     organizationId,
-                    employeeId }, (employeeName ? { employeeName } : {})), { ledgerType: 'employeeLedger', type: 'credit', category: 'wageCredit', amount: wagePerEmployee, financialYear, paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate), description: `Production Batch #${batchId}`, metadata: Object.assign({ sourceType: 'productionBatch', sourceId: batchId, batchId }, (employeeName ? { employeeName } : {})), createdBy, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+                    employeeId }, (employeeName ? { employeeName } : {})), { ledgerType: 'employeeLedger', type: 'credit', category: 'wageCredit', amount: wagePerEmployee, financialYear, transactionDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate), description: `Production Batch #${batchId}`, metadata: Object.assign({ sourceType: 'productionBatch', sourceId: batchId, batchId }, (employeeName ? { employeeName } : {})), createdBy, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
                 // Add batch details to metadata if available
                 if (productName) {
                     transactionData.metadata.productName = productName;
