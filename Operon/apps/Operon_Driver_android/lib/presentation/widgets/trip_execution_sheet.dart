@@ -4,10 +4,10 @@ import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:operon_driver_android/core/services/dm_print_helper.dart';
+import 'package:operon_driver_android/data/services/dm_print_service.dart';
 import 'package:operon_driver_android/core/services/storage_service.dart';
 import 'package:operon_driver_android/core/utils/trip_status_utils.dart';
-import 'package:operon_driver_android/presentation/widgets/driver_dm_print_sheet.dart';
+import 'package:operon_driver_android/presentation/widgets/dm_print_dialog.dart';
 import 'package:operon_driver_android/presentation/widgets/slide_action_button.dart';
 
 /// Morphing UI component that changes based on trip status.
@@ -277,22 +277,22 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
   Future<void> _openPrintDm(BuildContext context) async {
     final orgId = widget.organizationId;
     if (orgId == null) return;
-    final helper = context.read<DmPrintHelper>();
+    final dmPrintService = context.read<DmPrintService>();
     final dmNumber = (widget.trip['dmNumber'] as num?)?.toInt();
     if (dmNumber == null) return;
-    final dmData = await helper.fetchDmByNumberOrId(
+    final dmData = await dmPrintService.fetchDmByNumberOrId(
       organizationId: orgId,
       dmNumber: dmNumber,
       dmId: widget.trip['dmId'] as String?,
       tripData: widget.trip,
     );
     if (dmData == null || !context.mounted) return;
-    showDriverDmPrintSheet(
+    await DmPrintDialog.show(
       context: context,
+      dmPrintService: dmPrintService,
       organizationId: orgId,
       dmData: dmData,
       dmNumber: dmNumber,
-      dmPrintHelper: helper,
     );
   }
 

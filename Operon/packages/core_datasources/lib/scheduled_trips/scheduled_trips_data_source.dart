@@ -38,22 +38,33 @@ class ScheduledTripsDataSource {
         DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
-    // Debug logging
-    debugPrint(
-        '[ScheduledTripsDataSource] Query: orgId=$organizationId, driverPhone=$driverPhone, normalizedPhone=$normalizedPhone, date=$startOfDay');
+    if (kDebugMode) {
+      debugPrint(
+        '[ScheduledTripsDataSource] watchDriverScheduledTripsForDate: orgId=$organizationId, normalizedPhone=$normalizedPhone, day=$startOfDay',
+      );
+    }
 
-    // Query by org + date first (more flexible for existing trips with non-normalized phones)
-    // Note: We don't filter by isActive in the query to handle trips that may not have this field set
-    // Instead, we filter in memory to only include active trips (isActive != false)
-    return _firestore
+    Query<Map<String, dynamic>> query = _firestore
         .collection(_collection)
         .where('organizationId', isEqualTo: organizationId)
         .where('scheduledDate',
             isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-        .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
-        .limit(500)
-        .snapshots()
-        .map((snapshot) {
+        .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay));
+
+    final candidatePhones = <String>{
+      normalizedPhone,
+      _normalizePhone(driverPhone),
+      driverPhone.trim(),
+    }.where((p) => p.isNotEmpty).toList(growable: false);
+
+    if (candidatePhones.length == 1) {
+      query = query.where('driverPhone', isEqualTo: candidatePhones.first);
+    } else if (candidatePhones.length > 1) {
+      query = query.where('driverPhone', whereIn: candidatePhones);
+    }
+
+    // Keep a bounded stream size for mobile safety.
+    return query.limit(200).snapshots().map((snapshot) {
       final allTrips = snapshot.docs.map((doc) {
         final data = doc.data();
         final converted = <String, dynamic>{'id': doc.id};
@@ -70,8 +81,11 @@ class ScheduledTripsDataSource {
         return converted;
       }).toList();
 
-      debugPrint(
-          '[ScheduledTripsDataSource] Found ${allTrips.length} total trips for org=$organizationId, date=$startOfDay');
+      if (kDebugMode) {
+        debugPrint(
+          '[ScheduledTripsDataSource] Query returned ${allTrips.length} trip docs',
+        );
+      }
 
       // Filter by isActive (only exclude if explicitly false, treat missing as active)
       final activeTrips = allTrips.where((trip) {
@@ -80,28 +94,13 @@ class ScheduledTripsDataSource {
         return isActive != false;
       }).toList();
 
-      debugPrint(
-          '[ScheduledTripsDataSource] ${activeTrips.length} trips after isActive filter');
-
-      // Filter by normalized phone to handle both normalized and non-normalized stored values
+      // Safety fallback for non-normalized legacy phone entries.
       final trips = activeTrips.where((trip) {
-        final tripDriverPhone = trip['driverPhone'] as String?;
-        if (tripDriverPhone == null || tripDriverPhone.isEmpty) {
-          debugPrint(
-              '[ScheduledTripsDataSource] Trip ${trip['id']} has no driverPhone field');
-          return false;
-        }
-        // Normalize the stored phone and compare with normalized query phone
+        final tripDriverPhone = (trip['driverPhone'] as String?)?.trim();
+        if (tripDriverPhone == null || tripDriverPhone.isEmpty) return false;
         final normalizedTripPhone = _normalizePhone(tripDriverPhone);
-        final matches = normalizedTripPhone == normalizedPhone;
-        if (!matches) {
-          debugPrint(
-              '[ScheduledTripsDataSource] Trip ${trip['id']} phone mismatch: stored="$tripDriverPhone" normalized="$normalizedTripPhone" vs query="$normalizedPhone"');
-        } else {
-          debugPrint(
-              '[ScheduledTripsDataSource] Trip ${trip['id']} phone match: "$normalizedTripPhone"');
-        }
-        return matches;
+        return candidatePhones.contains(tripDriverPhone) ||
+            candidatePhones.contains(normalizedTripPhone);
       }).toList();
 
       int statusRank(String? status) {
@@ -131,9 +130,84 @@ class ScheduledTripsDataSource {
         return slotA.compareTo(slotB);
       });
 
-      debugPrint(
-          '[ScheduledTripsDataSource] Found ${trips.length} trips out of ${allTrips.length} total for date');
+      if (kDebugMode) {
+        debugPrint(
+          '[ScheduledTripsDataSource] Active driver trips: ${trips.length}',
+        );
+      }
       return trips;
+    });
+  }
+
+  /// Watch all active scheduled trips for an organization on a specific date.
+  ///
+  /// This is useful for read-only views where user should not be filtered by
+  /// driver phone (for example, non-driver users in Driver app).
+  Stream<List<Map<String, dynamic>>> watchScheduledTripsForDate({
+    required String organizationId,
+    required DateTime scheduledDate,
+  }) {
+    final startOfDay =
+        DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    return _firestore
+        .collection(_collection)
+        .where('organizationId', isEqualTo: organizationId)
+        .where('scheduledDate',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
+        .limit(500)
+        .snapshots()
+        .map((snapshot) {
+      final allTrips = snapshot.docs.map((doc) {
+        final data = doc.data();
+        final converted = <String, dynamic>{'id': doc.id};
+
+        data.forEach((key, value) {
+          if (value is Timestamp) {
+            converted[key] = value.toDate();
+          } else {
+            converted[key] = value;
+          }
+        });
+
+        return converted;
+      }).toList();
+
+      final activeTrips = allTrips.where((trip) {
+        final isActive = trip['isActive'] as bool?;
+        return isActive != false;
+      }).toList();
+
+      int statusRank(String? status) {
+        switch (status?.toLowerCase()) {
+          case 'scheduled':
+            return 0;
+          case 'dispatched':
+            return 1;
+          case 'delivered':
+            return 2;
+          case 'returned':
+            return 3;
+          case 'cancelled':
+            return 4;
+          default:
+            return 5;
+        }
+      }
+
+      activeTrips.sort((a, b) {
+        final statusA = a['tripStatus'] as String? ?? a['orderStatus'] as String?;
+        final statusB = b['tripStatus'] as String? ?? b['orderStatus'] as String?;
+        final rankCompare = statusRank(statusA).compareTo(statusRank(statusB));
+        if (rankCompare != 0) return rankCompare;
+        final slotA = a['slot'] as int? ?? 0;
+        final slotB = b['slot'] as int? ?? 0;
+        return slotA.compareTo(slotB);
+      });
+
+      return activeTrips;
     });
   }
 

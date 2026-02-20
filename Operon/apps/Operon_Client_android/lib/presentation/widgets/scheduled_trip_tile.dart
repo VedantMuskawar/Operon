@@ -76,16 +76,33 @@ class ScheduledTripTile extends StatelessWidget {
       return;
     }
 
-    final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
+    final sanitizedPhone = _sanitizePhoneNumber(phone);
+    final uri = Uri(scheme: 'tel', path: sanitizedPhone);
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open phone app')),
+        );
+      }
+    } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not open phone app')),
         );
       }
     }
+  }
+
+  String _sanitizePhoneNumber(String phone) {
+    final trimmed = phone.trim();
+    if (trimmed.startsWith('tel:')) {
+      return trimmed.substring(4);
+    }
+    return trimmed.replaceAll(RegExp(r'[\s\-()]+'), '');
   }
 
   Color _getStatusColor() {

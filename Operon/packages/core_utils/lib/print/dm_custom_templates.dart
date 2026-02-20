@@ -314,7 +314,8 @@ Future<Uint8List> generateCustomDmPdf({
 }) async {
   // Route to specific template based on ID
   switch (customTemplateId) {
-    case 'lakshmee_v1':
+    case 'LIT1':
+    case 'lakshmee_v1': // backward compatibility
       return generateLakshmeeTemplate(
         dmData: dmData,
         dmSettings: dmSettings,
@@ -322,6 +323,18 @@ Future<Uint8List> generateCustomDmPdf({
         qrCodeBytes: qrCodeBytes,
         watermarkBytes: watermarkBytes,
         logoBytes: logoBytes,
+        hidePriceFields: false,
+      );
+    case 'LIT2':
+    case 'lakshmee_v2': // backward compatibility
+      return generateLakshmeeTemplate(
+        dmData: dmData,
+        dmSettings: dmSettings,
+        paymentAccount: paymentAccount,
+        qrCodeBytes: qrCodeBytes,
+        watermarkBytes: watermarkBytes,
+        logoBytes: logoBytes,
+        hidePriceFields: true,
       );
     default:
       // Fallback to universal template if template ID not found
@@ -338,6 +351,7 @@ Future<Uint8List> generateLakshmeeTemplate({
   Uint8List? qrCodeBytes,
   Uint8List? watermarkBytes,
   Uint8List? logoBytes,
+  bool hidePriceFields = false,
 }) async {
   final data = DmPrintData.fromMap(dmData, paymentAccount);
   
@@ -393,6 +407,7 @@ Future<Uint8List> generateLakshmeeTemplate({
                   watermarkBytes: watermarkBytes,
                   logoBytes: logoBytes,
                   isDuplicate: false,
+                  hidePriceFields: hidePriceFields,
                 ),
                 // Cut line divider
                 pw.Container(
@@ -426,6 +441,7 @@ Future<Uint8List> generateLakshmeeTemplate({
                   watermarkBytes: watermarkBytes,
                   logoBytes: logoBytes,
                   isDuplicate: true,
+                  hidePriceFields: hidePriceFields,
                 ),
               ],
             ),
@@ -446,6 +462,7 @@ pw.Widget _buildLakshmeeTicket({
   Uint8List? watermarkBytes,
   Uint8List? logoBytes,
   required bool isDuplicate,
+  required bool hidePriceFields,
 }) {
   return pw.Container(
     width: theme.ticketWidth * PdfPageFormat.mm,
@@ -518,6 +535,7 @@ pw.Widget _buildLakshmeeTicket({
                   data: data,
                   theme: theme,
                   qrCodeBytes: qrCodeBytes,
+                  hidePriceFields: hidePriceFields,
                 ),
               ],
             ),
@@ -661,6 +679,7 @@ pw.Widget _buildLakshmeeMainContent({
   required DmPrintData data,
   required LakshmeeTheme theme,
   Uint8List? qrCodeBytes,
+  required bool hidePriceFields,
 }) {
   return pw.Row(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -689,6 +708,7 @@ pw.Widget _buildLakshmeeMainContent({
               data.total,
               data.paymentMode,
               theme,
+              hidePriceFields: hidePriceFields,
             ),
           ],
         ),
@@ -903,6 +923,9 @@ pw.Widget _buildLakshmeeProductTable(
   double total,
   String paymentMode,
   LakshmeeTheme theme,
+  {
+    required bool hidePriceFields,
+  }
 ) {
   final first = productItems.isNotEmpty
       ? productItems.first
@@ -937,13 +960,13 @@ pw.Widget _buildLakshmeeProductTable(
         ),
         _buildLakshmeeTableRow(
           'Unit Price',
-          'Rs ${_formatCurrency(first.unitPrice)}',
+          hidePriceFields ? '' : 'Rs ${_formatCurrency(first.unitPrice)}',
           isTotal: false,
           theme: theme,
         ),
         _buildLakshmeeTableRow(
           'Total',
-          'Rs ${_formatCurrency(total)}',
+          hidePriceFields ? '' : 'Rs ${_formatCurrency(total)}',
           isTotal: true,
           theme: theme,
         ),

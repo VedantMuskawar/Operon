@@ -50,9 +50,14 @@ class CallerOverlayService {
   /// Check if Caller ID overlay can run (overlay + phone permissions).
   Future<bool> canRunCallerOverlay() async {
     if (!Platform.isAndroid) return false;
+    _log('🔍 Checking if overlay can run...');
     final overlay = await isOverlayPermissionGranted();
     final phone = await isPhonePermissionGranted();
-    return overlay && phone;
+    _log('📋 Overlay permission: $overlay');
+    _log('📋 Phone permission: $phone');
+    final canRun = overlay && phone;
+    _log('✅ Can run overlay: $canRun');
+    return canRun;
   }
 
   /// Get pending incoming phone from native (when app launched by CallDetectionReceiver).
@@ -60,11 +65,14 @@ class CallerOverlayService {
   Future<String?> getPendingIncomingCall() async {
     if (!Platform.isAndroid) return null;
     try {
+      _log('💬 Fetching pending incoming call...');
       final phone =
           await _channel.invokeMethod<String>('getPendingIncomingCall');
-      return (phone != null && phone.isNotEmpty) ? phone : null;
+      final result = (phone != null && phone.isNotEmpty) ? phone : null;
+      _log('📞 Pending call result: ${result ?? 'null'}');
+      return result;
     } on PlatformException catch (e) {
-      _log('getPendingIncomingCall error: $e');
+      _log('❌ getPendingIncomingCall error: $e');
       return null;
     }
   }
@@ -73,11 +81,14 @@ class CallerOverlayService {
   Future<String?> getPendingIncomingCallPeek() async {
     if (!Platform.isAndroid) return null;
     try {
+      _log('👀 Peeking pending incoming call (non-destructive)...');
       final phone =
           await _channel.invokeMethod<String>('getPendingIncomingCallPeek');
-      return (phone != null && phone.isNotEmpty) ? phone : null;
+      final result = (phone != null && phone.isNotEmpty) ? phone : null;
+      _log('📞 Peek result: ${result ?? 'null'}');
+      return result;
     } on PlatformException catch (e) {
-      _log('getPendingIncomingCallPeek error: $e');
+      _log('❌ getPendingIncomingCallPeek error: $e');
       return null;
     }
   }
@@ -86,9 +97,11 @@ class CallerOverlayService {
   Future<void> clearPendingIncomingCall() async {
     if (!Platform.isAndroid) return;
     try {
+      _log('🗑️  Clearing pending incoming call...');
       await _channel.invokeMethod('clearPendingIncomingCall');
+      _log('✅ Pending call cleared');
     } on PlatformException catch (e) {
-      _log('clearPendingIncomingCall error: $e');
+      _log('❌ clearPendingIncomingCall error: $e');
     }
   }
 
@@ -97,13 +110,20 @@ class CallerOverlayService {
   static Future<String?> takeStoredPhoneFromFile() async {
     if (!Platform.isAndroid) return null;
     try {
+      _log('📂 Reading phone from cache file...');
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/$_overlayPhoneFile');
-      if (!await file.exists()) return null;
+      final exists = await file.exists();
+      _log('📁 Cache file exists: $exists');
+      if (!exists) {
+        _log('⚠️  No cached phone file found');
+        return null;
+      }
       final phone = await file.readAsString();
+      _log('✅ Read phone from file: ${phone.isNotEmpty ? phone.trim() : 'empty'}');
       return phone.trim().isNotEmpty ? phone.trim() : null;
     } catch (e) {
-      _log('takeStoredPhoneFromFile error: $e');
+      _log('❌ takeStoredPhoneFromFile error: $e');
       return null;
     }
   }
@@ -112,31 +132,38 @@ class CallerOverlayService {
   /// Returns true if overlay was shown, false otherwise.
   Future<bool> triggerOverlay(String phone) async {
     if (!Platform.isAndroid) return false;
+    _log('🎬 Triggering overlay for phone: $phone');
     final normalized = normalizePhone(phone);
+    _log('📞 Normalized phone: $normalized');
     if (normalized.isEmpty) {
-      _log('triggerOverlay: empty phone after normalize');
+      _log('⚠️  Empty phone after normalize, skipping overlay trigger');
       return false;
     }
 
     final overlayOk = await isOverlayPermissionGranted();
+    _log('📋 Overlay permission granted: $overlayOk');
     if (!overlayOk) {
       _log(
-          'Overlay permission not granted, skip. Enable in Profile → Caller ID.');
+          '❌ Overlay permission not granted. Enable in Profile → Caller ID.');
       return false;
     }
 
     try {
+      _log('📡 Sharing data with overlay window...');
       await FlutterOverlayWindow.shareData(normalized);
+      _log('✅ Data shared successfully');
     } catch (e) {
-      _log('shareData error: $e');
+      _log('⚠️  shareData error: $e');
     }
     // shareData(normalized) immediately above; overlayListener receives it (avoids SharedPreferences sync lag).
     final granted = await FlutterOverlayWindow.isPermissionGranted();
+    _log('📋 Final overlay permission check: $granted');
     if (!granted) {
-      _log('Overlay permission revoked before showOverlay, skip.');
+      _log('❌ Overlay permission revoked before showOverlay, skipping.');
       return false;
     }
     try {
+      _log('🖼️  Showing overlay window...');
       await FlutterOverlayWindow.showOverlay(
         enableDrag: true,
         overlayTitle: 'Operon Caller ID',
@@ -148,11 +175,11 @@ class CallerOverlayService {
         width: 440,
         alignment: OverlayAlignment.center,
       );
-      _log('showOverlay completed for $normalized');
+      _log('✅ Overlay displayed successfully for $normalized');
       return true;
     } catch (e, st) {
-      _log('showOverlay error: $e');
-      _log('$st');
+      _log('❌ showOverlay error: $e');
+      _log('Stack: $st');
       return false;
     }
   }
@@ -160,20 +187,26 @@ class CallerOverlayService {
   /// Close the overlay (e.g. from overlay Close button).
   Future<void> closeOverlay() async {
     if (!Platform.isAndroid) return;
+    _log('🔴 Closing overlay...');
     await FlutterOverlayWindow.closeOverlay();
+    _log('✅ Overlay closed');
   }
 
   /// Whether Caller ID overlay is enabled (persisted). When false, overlay is not shown on incoming calls.
   Future<bool> isCallerIdEnabled() async {
     if (!Platform.isAndroid) return false;
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyCallerIdEnabled) ?? false;
+    final enabled = prefs.getBool(_keyCallerIdEnabled) ?? false;
+    _log('🔍 Caller ID enabled: $enabled');
+    return enabled;
   }
 
   /// Enable or disable Caller ID overlay.
   Future<void> setCallerIdEnabled(bool enabled) async {
+    _log('⚙️  Setting Caller ID enabled: $enabled');
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyCallerIdEnabled, enabled);
+    _log('✅ Caller ID enabled state saved: $enabled');
   }
 
   /// Push phone to overlay via shareData only (overlay already shown by OverlayService).
@@ -181,15 +214,16 @@ class CallerOverlayService {
   Future<void> shareDataOnlyForOverlay(String phone) async {
     if (!Platform.isAndroid) return;
     final normalized = normalizePhone(phone);
+    _log('📡 Sharing data only (overlay already shown): $normalized');
     if (normalized.isEmpty) {
-      _log('shareDataOnlyForOverlay: empty phone after normalize');
+      _log('⚠️  Empty phone after normalize, skipping share');
       return;
     }
     try {
       await FlutterOverlayWindow.shareData(normalized);
-      _log('shareDataOnlyForOverlay: shareData($normalized) ok');
+      _log('✅ Data shared successfully: $normalized');
     } catch (e) {
-      _log('shareDataOnlyForOverlay error: $e');
+      _log('❌ shareDataOnlyForOverlay error: $e');
     }
   }
 
@@ -197,14 +231,21 @@ class CallerOverlayService {
   /// overlay is already shown by OverlayService. No showOverlay.
   Future<bool> checkAndTriggerFromPendingCall() async {
     if (!Platform.isAndroid) return false;
-    _log('checkAndTriggerFromPendingCall');
+    _log('🔍 Checking for pending incoming call...');
     final enabled = await isCallerIdEnabled();
-    _log('Caller ID enabled: $enabled');
-    if (!enabled) return false;
+    _log('📋 Caller ID enabled: $enabled');
+    if (!enabled) {
+      _log('❌ Caller ID disabled, skipping pending call check');
+      return false;
+    }
     final phone = await getPendingIncomingCallPeek();
     _log(
-        'Pending phone: ${phone != null && phone.isNotEmpty ? phone : "null/empty"}');
-    if (phone == null || phone.isEmpty) return false;
+        '📞 Pending phone: ${phone != null && phone.isNotEmpty ? phone : "none"}');
+    if (phone == null || phone.isEmpty) {
+      _log('⚠️  No pending call found');
+      return false;
+    }
+    _log('✅ Pending call found, sharing data with overlay');
     await shareDataOnlyForOverlay(phone);
     await clearPendingIncomingCall();
     return true;

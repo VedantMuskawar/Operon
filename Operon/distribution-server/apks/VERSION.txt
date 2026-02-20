@@ -1,0 +1,17 @@
+Operon Client Android - Latest Deployed Versions
+
+Production:
+- Version: 1.2.0
+- Build: 4
+- Package: operon-client-v1.2.0-build4.apk
+- Size: 80.1 MB
+- MD5: 91ce07730f91115872b2ee1af4cb9504
+- Date: $(date)
+- Status: ✅ DEPLOYED
+
+Changes in v1.2.0:
+- Cash Ledger: Switched date filtering from createdAt to effectiveDate (both platforms aligned)
+- Create Order: GST checkbox now defaults to false
+- Scheduling Modal: Payment type now defaults to "Pay Now"
+- Contact Flow: Existing clients now route directly to Create Order page
+- Client Detail: Added "Create New Order" button in pending orders section

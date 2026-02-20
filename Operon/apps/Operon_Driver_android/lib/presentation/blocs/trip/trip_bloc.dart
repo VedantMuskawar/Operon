@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_bloc/core_bloc.dart';
@@ -217,27 +215,6 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
       await _backgroundService.startService();
 
       await WakelockPlus.enable();
-
-      // #region agent log
-      try {
-        final logFile = File(
-          '/Users/vedantreddymuskawar/Operon/.cursor/debug.log',
-        );
-        final logData = {
-          'location': 'trip_bloc.dart:187',
-          'message': 'Before emit success state',
-          'data': {'isClosed': isClosed, 'tripId': trip.id},
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-          'sessionId': 'debug-session',
-          'runId': 'run2',
-          'hypothesisId': 'G',
-        };
-        logFile.writeAsStringSync(
-          '${jsonEncode(logData)}\n',
-          mode: FileMode.append,
-        );
-      } catch (_) {}
-      // #endregion
       emit(
         state.copyWith(
           status: ViewStatus.success,
@@ -245,26 +222,6 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
           isTracking: true,
         ),
       );
-      // #region agent log
-      try {
-        final logFile = File(
-          '/Users/vedantreddymuskawar/Operon/.cursor/debug.log',
-        );
-        final logData = {
-          'location': 'trip_bloc.dart:195',
-          'message': 'After emit success state',
-          'data': {'isClosed': isClosed},
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-          'sessionId': 'debug-session',
-          'runId': 'run2',
-          'hypothesisId': 'G',
-        };
-        logFile.writeAsStringSync(
-          '${jsonEncode(logData)}\n',
-          mode: FileMode.append,
-        );
-      } catch (_) {}
-      // #endregion
 
       // Start monitoring trip status for external changes (e.g., dispatch undo from client app)
       _watchActiveTripStatus(trip.id);
@@ -321,54 +278,10 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
   }
 
   Future<void> _onEndTrip(EndTrip event, Emitter<TripState> emit) async {
-    // #region agent log
-    final logData = {
-      'location': 'trip_bloc.dart:226',
-      'message': '_onEndTrip called',
-      'data': {
-        'isClosed': isClosed,
-        'activeTripId': state.activeTrip?.id,
-        'isTracking': state.isTracking,
-      },
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-      'sessionId': 'debug-session',
-      'runId': 'run1',
-      'hypothesisId': 'B',
-    };
-    try {
-      final logFile = File(
-        '/Users/vedantreddymuskawar/Operon/.cursor/debug.log',
-      );
-      logFile.writeAsStringSync(
-        '${logFile.existsSync() ? logFile.readAsStringSync() : ""}${jsonEncode(logData)}\n',
-        mode: FileMode.append,
-      );
-    } catch (_) {}
-    // #endregion
     final currentTrip = state.activeTrip;
     if (currentTrip == null) return;
 
     emit(state.copyWith(status: ViewStatus.loading, message: null));
-    // #region agent log
-    final logData2 = {
-      'location': 'trip_bloc.dart:234',
-      'message': '_onEndTrip emit loading',
-      'data': {'isClosed': isClosed},
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-      'sessionId': 'debug-session',
-      'runId': 'run1',
-      'hypothesisId': 'B',
-    };
-    try {
-      final logFile = File(
-        '/Users/vedantreddymuskawar/Operon/.cursor/debug.log',
-      );
-      logFile.writeAsStringSync(
-        '${logFile.existsSync() ? logFile.readAsStringSync() : ""}${jsonEncode(logData2)}\n',
-        mode: FileMode.append,
-      );
-    } catch (_) {}
-    // #endregion
 
     try {
       final endTime = DateTime.now().millisecondsSinceEpoch;
@@ -542,16 +455,6 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
               debugPrint(
                 '[TripBloc] Trip $tripId was dispatched by client (source=client). Marking as manual dispatch. Tracking will NOT start.',
               );
-              // Update state to mark as manual dispatch
-              if (!isClosed) {
-                emit(
-                  state.copyWith(
-                    lastStatusChangeSource: 'client',
-                    isManualDispatch: true,
-                    message: 'Trip dispatched by HQ. Tracking not started.',
-                  ),
-                );
-              }
               // If tracking is active, stop it (shouldn't happen, but safety check)
               if (state.isTracking && !isClosed) {
                 debugPrint(
@@ -563,17 +466,7 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
             }
 
             // If status changed to dispatched with source == 'driver', this is normal
-            // Only update source tracking, don't interfere with tracking
-            if (tripStatus == 'dispatched' && source == 'driver') {
-              if (!isClosed) {
-                emit(
-                  state.copyWith(
-                    lastStatusChangeSource: 'driver',
-                    isManualDispatch: false,
-                  ),
-                );
-              }
-            }
+            // don't interfere with tracking.
 
             // Only process tracking state changes if we have an active trip and tracking is active
             if (state.activeTrip == null || !state.isTracking) {

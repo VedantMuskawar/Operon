@@ -23,7 +23,7 @@ class OrderSummarySection extends StatefulWidget {
 }
 
 class _OrderSummarySectionState extends State<OrderSummarySection> {
-  bool _includeGst = true;
+  bool _includeGst = false;
   bool _hasAdvancePayment = false;
   final TextEditingController _advanceAmountController = TextEditingController();
   String? _selectedPaymentAccountId;
@@ -524,7 +524,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
             value: _includeGst,
             onChanged: (value) {
               setState(() {
-                _includeGst = value ?? true;
+                _includeGst = value ?? false;
               });
             },
             activeColor: AuthColors.secondary,

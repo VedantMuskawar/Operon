@@ -1025,9 +1025,13 @@ class _AppVersionInfo extends StatelessWidget {
       future: PackageInfo.fromPlatform(),
       builder: (context, snapshot) {
         final info = snapshot.data;
-        final versionLabel = info == null
-            ? '—'
-            : '${info.version} (${info.buildNumber})';
+        const webVersion = String.fromEnvironment(
+          'OPERON_WEB_VERSION',
+          defaultValue: 'v1.1.0(2)',
+        );
+        final versionLabel = kIsWeb
+            ? webVersion
+            : (info == null ? '—' : '${info.version} (${info.buildNumber})');
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

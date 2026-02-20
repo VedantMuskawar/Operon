@@ -44,6 +44,12 @@ DateTime _resolveDeliveryDate(Map<String, dynamic> trip) {
   return resolved ?? DateTime.now();
 }
 
+bool _isSameCalendarDay(DateTime first, DateTime second) {
+  return first.year == second.year &&
+      first.month == second.month &&
+      first.day == second.day;
+}
+
 class ScheduleTripDetailPage extends StatefulWidget {
   const ScheduleTripDetailPage({
     super.key,
@@ -62,6 +68,25 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
   StreamSubscription<DocumentSnapshot>? _tripSubscription;
   List<PaymentAccount>? _cachedPaymentAccounts;
   String? _cachedPaymentAccountsOrgId;
+
+  bool _canManageRecordedPayments() {
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final fallbackAdmin =
+        (orgState.organization?.role.toUpperCase() ?? '') == 'ADMIN';
+    final isAdminRole = orgState.appAccessRole?.isAdmin ?? fallbackAdmin;
+
+    final tripStatus =
+        (_trip['orderStatus'] ?? _trip['tripStatus'] ?? 'pending')
+            .toString()
+            .toLowerCase();
+    final isReturned = tripStatus == 'returned';
+
+    final scheduledDate = _resolveDeliveryDate(_trip);
+    final isScheduledForToday =
+        _isSameCalendarDay(scheduledDate, DateTime.now());
+
+    return isReturned && (isAdminRole || isScheduledForToday);
+  }
 
   Future<void> _updatePaymentType(String paymentType) async {
     final tripId = _trip['id'] as String?;
@@ -515,6 +540,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                         _PaymentsTab(
                           trip: _trip,
                           tripPricing: tripPricing,
+                          canManageRecordedPayments:
+                              _canManageRecordedPayments(),
+                          onEditPayment: _editPaymentEntry,
+                          onDeletePayment: _deletePaymentEntry,
                         ),
                       ],
                     ),
@@ -1037,6 +1066,486 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
   }
 
+  Future<String> _recordTripPaymentTransaction({
+    required String tripId,
+    required String organizationId,
+    required String currentUserId,
+    required DateTime paymentTimestamp,
+    required double amount,
+    required String? paymentAccountId,
+    required String? paymentAccountType,
+    required int paymentIndex,
+    required bool manualPayment,
+    bool editedPayment = false,
+  }) async {
+    final transactionsRepo = context.read<TransactionsRepository>();
+    final financialYear = FinancialYearUtils.getFinancialYear(paymentTimestamp);
+    final clientId = _trip['clientId'] as String?;
+    final clientName = _trip['clientName'] as String?;
+    final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
+    final dmText = dmNumber != null ? 'DM-$dmNumber' : 'Trip';
+
+    return transactionsRepo.createTransaction(
+      Transaction(
+        id: '',
+        organizationId: organizationId,
+        clientId: clientId,
+        clientName: clientName,
+        ledgerType: LedgerType.clientLedger,
+        type: TransactionType.debit,
+        category: TransactionCategory.tripPayment,
+        amount: amount,
+        paymentAccountId: paymentAccountId,
+        paymentAccountType: paymentAccountType,
+        tripId: tripId,
+        description: 'Trip Payment - $dmText',
+        metadata: {
+          'tripId': tripId,
+          if (dmNumber != null) 'dmNumber': dmNumber,
+          'paymentIndex': paymentIndex,
+          'manualPayment': manualPayment,
+          if (editedPayment) 'editedPayment': true,
+        },
+        createdBy: currentUserId,
+        createdAt: paymentTimestamp,
+        updatedAt: paymentTimestamp,
+        financialYear: financialYear,
+      ),
+    );
+  }
+
+  Future<void> _saveTripPaymentDetails(
+    List<Map<String, dynamic>> paymentDetails,
+  ) async {
+    final tripId = _trip['id'] as String?;
+    if (tripId == null) {
+      return;
+    }
+
+    final tripPricing = _trip['tripPricing'] as Map<String, dynamic>? ?? {};
+    final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+    final totalPaid = paymentDetails.fold<double>(
+      0,
+      (total, p) => total + ((p['amount'] as num?)?.toDouble() ?? 0),
+    );
+    final remainingAmount =
+        (tripTotal - totalPaid).clamp(0, double.infinity).toDouble();
+    final paymentStatus = totalPaid >= tripTotal - 0.001
+        ? 'full'
+        : totalPaid > 0
+            ? 'partial'
+            : 'pending';
+    final currentTripStatus =
+        (_trip['tripStatus'] ?? _trip['orderStatus'] ?? 'scheduled').toString();
+
+    final repository = context.read<ScheduledTripsRepository>();
+    await repository.updateTripStatus(
+      tripId: tripId,
+      tripStatus: currentTripStatus,
+      paymentDetails: paymentDetails,
+      totalPaidOnReturn: totalPaid,
+      paymentStatus: paymentStatus,
+      remainingAmount: remainingAmount > 0.001 ? remainingAmount : null,
+      source: 'client',
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _trip['paymentDetails'] = paymentDetails;
+      _trip['totalPaidOnReturn'] = totalPaid;
+      _trip['paymentStatus'] = paymentStatus;
+      if (remainingAmount > 0.001) {
+        _trip['remainingAmount'] = remainingAmount;
+      } else {
+        _trip.remove('remainingAmount');
+      }
+    });
+  }
+
+  Future<void> _editPaymentEntry(int index) async {
+    if (!_canManageRecordedPayments()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'You can edit payments only for today\'s returned trips unless you are Admin.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final tripId = _trip['id'] as String?;
+    if (tripId == null) {
+      return;
+    }
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not found')),
+        );
+      }
+      return;
+    }
+
+    final orgContext = context.read<OrganizationContextCubit>().state;
+    final organization = orgContext.organization;
+    if (organization == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Organization not found')),
+        );
+      }
+      return;
+    }
+
+    final paymentDetails = (_trip['paymentDetails'] as List<dynamic>?)
+            ?.map((e) => Map<String, dynamic>.from(e as Map))
+            .toList() ??
+        <Map<String, dynamic>>[];
+    if (index < 0 || index >= paymentDetails.length) {
+      return;
+    }
+
+    final oldPayment = paymentDetails[index];
+    final oldAmount = (oldPayment['amount'] as num?)?.toDouble() ?? 0.0;
+
+    final activeAccounts = await _getActivePaymentAccounts();
+    if (!mounted) {
+      return;
+    }
+    if (activeAccounts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active payment accounts found')),
+      );
+      return;
+    }
+
+    PaymentAccount? selectedAccount;
+    final existingAccountId = oldPayment['paymentAccountId'] as String?;
+    if (existingAccountId != null) {
+      for (final account in activeAccounts) {
+        if (account.id == existingAccountId) {
+          selectedAccount = account;
+          break;
+        }
+      }
+    }
+    selectedAccount ??= activeAccounts.first;
+
+    final amountController =
+        TextEditingController(text: oldAmount.toStringAsFixed(2));
+    final formKey = GlobalKey<FormState>();
+
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          backgroundColor: AuthColors.surface,
+          title: const Text(
+            'Edit Payment',
+            style: TextStyle(color: AuthColors.textMain),
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<PaymentAccount>(
+                  initialValue: selectedAccount,
+                  decoration: InputDecoration(
+                    labelText: 'Payment Account',
+                    labelStyle: const TextStyle(color: AuthColors.textSub),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                          color: AuthColors.textMain.withValues(alpha: 0.3)),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: AuthColors.info),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                    ),
+                  ),
+                  dropdownColor: AuthColors.surface,
+                  style: const TextStyle(color: AuthColors.textMain),
+                  items: activeAccounts
+                      .map(
+                        (account) => DropdownMenuItem<PaymentAccount>(
+                          value: account,
+                          child: Text('${account.name} (${account.type.name})'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (account) {
+                    setDialogState(() => selectedAccount = account);
+                  },
+                  validator: (value) {
+                    if (value == null) {
+                      return 'Please select a payment account';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppSpacing.paddingMD),
+                TextFormField(
+                  controller: amountController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(color: AuthColors.textMain),
+                  decoration: InputDecoration(
+                    labelText: 'Amount (₹)',
+                    labelStyle: const TextStyle(color: AuthColors.textSub),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                          color: AuthColors.textMain.withValues(alpha: 0.3)),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: AuthColors.info),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter amount';
+                    }
+                    final parsed = double.tryParse(value.trim());
+                    if (parsed == null || parsed <= 0) {
+                      return 'Please enter a valid amount';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.of(dialogContext).pop(true);
+                }
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AuthColors.info,
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (shouldSave != true || selectedAccount == null) {
+      return;
+    }
+    final chosenAccount = selectedAccount!;
+
+    final updatedAmount = double.tryParse(amountController.text.trim());
+    if (updatedAmount == null || updatedAmount <= 0) {
+      return;
+    }
+
+    final tripPricing = _trip['tripPricing'] as Map<String, dynamic>? ?? {};
+    final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+    final currentTotalPaid = paymentDetails.fold<double>(
+      0,
+      (total, p) => total + ((p['amount'] as num?)?.toDouble() ?? 0),
+    );
+    final recalculatedTotalPaid = currentTotalPaid - oldAmount + updatedAmount;
+    if (recalculatedTotalPaid > tripTotal + 0.001) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Updated amount exceeds total. Max allowed: ₹${(tripTotal - (currentTotalPaid - oldAmount)).toStringAsFixed(2)}',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Updating payment...')),
+        );
+      }
+
+      final transactionsRepo = context.read<TransactionsRepository>();
+      final oldTransactionId = oldPayment['transactionId'] as String?;
+      if (oldTransactionId != null && oldTransactionId.isNotEmpty) {
+        await transactionsRepo.cancelTransaction(
+          transactionId: oldTransactionId,
+          cancelledBy: currentUser.uid,
+          cancellationReason: 'Trip payment edited from trip detail page',
+        );
+      }
+
+      final oldPaidAt = oldPayment['paidAt'];
+      final paymentTimestamp = oldPaidAt is DateTime
+          ? oldPaidAt
+          : oldPaidAt is Timestamp
+              ? oldPaidAt.toDate()
+              : _resolveDeliveryDate(_trip);
+
+      final newTransactionId = await _recordTripPaymentTransaction(
+        tripId: tripId,
+        organizationId: organization.id,
+        currentUserId: currentUser.uid,
+        paymentTimestamp: paymentTimestamp,
+        amount: updatedAmount,
+        paymentAccountId: chosenAccount.id,
+        paymentAccountType: chosenAccount.type.name,
+        paymentIndex: index,
+        manualPayment: true,
+        editedPayment: true,
+      );
+
+      paymentDetails[index] = {
+        ...oldPayment,
+        'paymentAccountId': chosenAccount.id,
+        'paymentAccountName': chosenAccount.name,
+        'paymentAccountType': chosenAccount.type.name,
+        'amount': updatedAmount,
+        'transactionId': newTransactionId,
+        'updatedAt': DateTime.now(),
+        'updatedBy': currentUser.uid,
+      };
+
+      await _saveTripPaymentDetails(paymentDetails);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment updated successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update payment: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deletePaymentEntry(int index) async {
+    if (!_canManageRecordedPayments()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'You can delete payments only for today\'s returned trips unless you are Admin.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final tripId = _trip['id'] as String?;
+    if (tripId == null) {
+      return;
+    }
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not found')),
+        );
+      }
+      return;
+    }
+
+    final paymentDetails = (_trip['paymentDetails'] as List<dynamic>?)
+            ?.map((e) => Map<String, dynamic>.from(e as Map))
+            .toList() ??
+        <Map<String, dynamic>>[];
+    if (index < 0 || index >= paymentDetails.length) {
+      return;
+    }
+
+    final targetPayment = paymentDetails[index];
+    final amount = (targetPayment['amount'] as num?)?.toDouble() ?? 0.0;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AuthColors.surface,
+        title: const Text(
+          'Delete Payment',
+          style: TextStyle(color: AuthColors.textMain),
+        ),
+        content: Text(
+          'Delete payment entry of ₹${amount.toStringAsFixed(2)}? This action cannot be undone.',
+          style: const TextStyle(color: AuthColors.textSub),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AuthColors.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Deleting payment...')),
+        );
+      }
+
+      final transactionsRepo = context.read<TransactionsRepository>();
+      final transactionId = targetPayment['transactionId'] as String?;
+      if (transactionId != null && transactionId.isNotEmpty) {
+        await transactionsRepo.cancelTransaction(
+          transactionId: transactionId,
+          cancelledBy: currentUser.uid,
+          cancellationReason: 'Trip payment deleted from trip detail page',
+        );
+      }
+
+      paymentDetails.removeAt(index);
+      await _saveTripPaymentDetails(paymentDetails);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment deleted successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete payment: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _recordPaymentManually(BuildContext context) async {
     final tripId = _trip['id'] as String?;
     if (tripId == null) {
@@ -1138,13 +1647,6 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
               : 'pending';
 
       // Create payment transactions
-      final transactionsRepo = context.read<TransactionsRepository>();
-      final financialYear =
-          FinancialYearUtils.getFinancialYear(paymentTimestamp);
-      final clientId = _trip['clientId'] as String?;
-      final clientName = _trip['clientName'] as String?;
-      final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
-      final dmText = dmNumber != null ? 'DM-$dmNumber' : 'Trip';
       final List<String> transactionIds = [];
 
       Future<void> createPaymentTransaction(
@@ -1154,34 +1656,19 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           return;
         }
 
-        final txnId = await transactionsRepo.createTransaction(
-          Transaction(
-            id: '', // Will be generated
-            organizationId: organization.id,
-            clientId: clientId,
-            clientName: clientName,
-            ledgerType: LedgerType.clientLedger,
-            type: TransactionType
-                .debit, // Debit = client paid (decreases receivable)
-            category: TransactionCategory.tripPayment, // Order payment
-            amount: amount,
-            paymentAccountId: payment['paymentAccountId'] as String?,
-            paymentAccountType: payment['paymentAccountType'] as String?,
-            tripId: tripId,
-            description: 'Trip Payment - $dmText',
-            metadata: {
-              'tripId': tripId,
-              if (dmNumber != null) 'dmNumber': dmNumber,
-              'paymentIndex': index,
-              'manualPayment': true,
-            },
-            createdBy: currentUser.uid,
-            createdAt: paymentTimestamp,
-            updatedAt: paymentTimestamp,
-            financialYear: financialYear,
-          ),
+        final txnId = await _recordTripPaymentTransaction(
+          tripId: tripId,
+          organizationId: organization.id,
+          currentUserId: currentUser.uid,
+          paymentTimestamp: paymentTimestamp,
+          amount: amount,
+          paymentAccountId: payment['paymentAccountId'] as String?,
+          paymentAccountType: payment['paymentAccountType'] as String?,
+          paymentIndex: index,
+          manualPayment: true,
         );
         transactionIds.add(txnId);
+        payment['transactionId'] = txnId;
       }
 
       try {
@@ -1383,10 +1870,19 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       );
       return;
     }
-    final uri = Uri.parse('tel:$phone');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
+    final sanitizedPhone = _sanitizePhoneNumber(phone);
+    final uri = Uri(scheme: 'tel', path: sanitizedPhone);
+    try {
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not call $label')),
+        );
+      }
+    } catch (_) {
       if (!mounted) {
         return;
       }
@@ -1394,6 +1890,14 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         SnackBar(content: Text('Could not call $label')),
       );
     }
+  }
+
+  String _sanitizePhoneNumber(String phone) {
+    final trimmed = phone.trim();
+    if (trimmed.startsWith('tel:')) {
+      return trimmed.substring(4);
+    }
+    return trimmed.replaceAll(RegExp(r'[\s\-()]+'), '');
   }
 }
 
@@ -2406,6 +2910,13 @@ class _OverviewTab extends StatelessWidget {
     final tripPricing = trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final totalAmount = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
     final paymentTypeValue = (paymentType ?? '').toLowerCase();
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final fallbackAdmin =
+      (orgState.organization?.role.toUpperCase() ?? '') == 'ADMIN';
+    final isAdminRole = orgState.appAccessRole?.isAdmin ?? fallbackAdmin;
+    final scheduledDate = _resolveDeliveryDate(trip);
+    final isScheduledForToday =
+      _isSameCalendarDay(scheduledDate, DateTime.now());
 
     final isDispatched = tripStatus.toLowerCase() == 'dispatched';
     final isDelivered = tripStatus.toLowerCase() == 'delivered';
@@ -2413,7 +2924,7 @@ class _OverviewTab extends StatelessWidget {
     final isPending = tripStatus.toLowerCase() == 'pending' ||
         tripStatus.toLowerCase() == 'scheduled';
     final hasDM = dmNumber != null;
-    final canRecordPayment = isReturned;
+    final canRecordPayment = isReturned && (isAdminRole || isScheduledForToday);
     final canEditPaymentType = !isPaymentTypeLocked;
     final showPaymentSection = paymentTypeValue.isNotEmpty;
 
@@ -2587,6 +3098,16 @@ class _OverviewTab extends StatelessWidget {
                 ),
               ),
             ),
+            if (!canRecordPayment && isReturned && !isAdminRole) ...[
+              const SizedBox(height: AppSpacing.paddingSM),
+              Text(
+                'Only Admin can record payment after trip day. For other roles, this is allowed only on the scheduled day.',
+                style: TextStyle(
+                  color: AuthColors.textSub,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ],
           const SizedBox(height: AppSpacing.paddingMD),
 
@@ -2860,10 +3381,16 @@ class _PaymentsTab extends StatelessWidget {
   const _PaymentsTab({
     required this.trip,
     required this.tripPricing,
+    required this.canManageRecordedPayments,
+    required this.onEditPayment,
+    required this.onDeletePayment,
   });
 
   final Map<String, dynamic> trip;
   final Map<String, dynamic> tripPricing;
+  final bool canManageRecordedPayments;
+  final Future<void> Function(int index) onEditPayment;
+  final Future<void> Function(int index) onDeletePayment;
 
   @override
   Widget build(BuildContext context) {
@@ -3007,6 +3534,16 @@ class _PaymentsTab extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+          if (!canManageRecordedPayments) ...[
+            const SizedBox(height: AppSpacing.paddingXS),
+            const Text(
+              'Edit/Delete allowed only for Admin or same-day returned trips.',
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 11,
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.paddingMD),
           ...paymentDetails.asMap().entries.map((entry) {
             final index = entry.key;
@@ -3021,6 +3558,7 @@ class _PaymentsTab extends StatelessWidget {
                     : 0,
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
@@ -3047,13 +3585,57 @@ class _PaymentsTab extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Text(
-                    '₹${amount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: AuthColors.textMain,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  const SizedBox(width: AppSpacing.paddingMD),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '₹${amount.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: AuthColors.textMain,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.paddingXS),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: canManageRecordedPayments
+                                ? () => onEditPayment(index)
+                                : null,
+                            tooltip: 'Edit payment',
+                            icon: const Icon(
+                              Icons.edit_outlined,
+                              size: 18,
+                              color: AuthColors.info,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 28,
+                              minHeight: 28,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: canManageRecordedPayments
+                                ? () => onDeletePayment(index)
+                                : null,
+                            tooltip: 'Delete payment',
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              size: 18,
+                              color: AuthColors.error,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 28,
+                              minHeight: 28,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ],
               ),

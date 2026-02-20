@@ -51,6 +51,7 @@ import 'package:dash_web/presentation/widgets/record_expense_dialog.dart';
 import 'package:dash_web/presentation/widgets/whatsapp_messages_switch_section.dart';
 import 'package:dash_web/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -253,8 +254,13 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                 future: PackageInfo.fromPlatform(),
                 builder: (context, snapshot) {
                   final info = snapshot.data;
-                  final versionLabel =
-                      info == null ? null : '${info.version} (${info.buildNumber})';
+                  const webVersion = String.fromEnvironment(
+                    'OPERON_WEB_VERSION',
+                    defaultValue: 'v1.1.0(2)',
+                  );
+                  final versionLabel = kIsWeb
+                      ? webVersion
+                      : (info == null ? '—' : '${info.version} (${info.buildNumber})');
 
                   return ProfileView(
                     user: authState.userProfile,
@@ -381,12 +387,10 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                   _isSettingsOpen = false;
                   _contentPage = ContentPage.productionBatchTemplates;
                 }),
-                onOpenDmSettings: isAdminRole
-                    ? () => setState(() {
-                        _isSettingsOpen = false;
-                        _contentPage = ContentPage.dmSettings;
-                      })
-                    : null,
+                onOpenDmSettings: () => setState(() {
+                  _isSettingsOpen = false;
+                  _contentPage = ContentPage.dmSettings;
+                }),
                 onOpenExpenseSubCategories: () => setState(() {
                   _isSettingsOpen = false;
                   _contentPage = ContentPage.expenseSubCategories;

@@ -484,6 +484,8 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
             ledgers: filtered,
             onOpen: _openLedgerDetail,
             onRefresh: _refreshLedgerById,
+            onEdit: _openEditDialog,
+            onDelete: _deleteCombinedLedger,
             refreshingId: _refreshingLedgerId,
             isRefreshing: _isRefreshing,
           ),
@@ -554,6 +556,14 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
       orElse: () => _CombinedLedger.empty(),
     );
     if (ledger.isEmpty) return;
+    if (ledger.accounts.length < 2) {
+      DashSnackbar.show(
+        context,
+        message: 'Cannot refresh: ledger must contain at least two accounts.',
+        isError: true,
+      );
+      return;
+    }
 
     final orgState = context.read<OrganizationContextCubit>().state;
     final orgId = orgState.organization?.id;
@@ -584,16 +594,16 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
       });
 
       final data = response.data as Map<Object?, Object?>?;
-      final ledgerId = (data?['ledgerId'] as String?) ??
+        final generatedLedgerId = (data?['ledgerId'] as String?) ??
           '${ledger.accountsLedgerId}_$financialYear';
 
       await FirebaseFirestore.instance
           .collection('COMBINED_ACCOUNTS')
-          .doc(ledger.accountsLedgerId)
+          .doc(ledger.id)
           .set(
         {
           'lastLedgerRefreshAt': FieldValue.serverTimestamp(),
-          'lastLedgerId': ledgerId,
+          'lastLedgerId': generatedLedgerId,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -602,10 +612,10 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
       setState(() {
         _ledgers = _ledgers
             .map(
-              (item) => item.id == ledgerId
+              (item) => item.id == ledger.id
                   ? item.copyWith(
                       lastRefreshedAt: DateTime.now(),
-                      lastLedgerId: ledgerId,
+                      lastLedgerId: generatedLedgerId,
                     )
                   : item,
             )
@@ -614,7 +624,68 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
       _ledgerCache[orgId] = _ledgers;
 
       DashSnackbar.show(context, message: 'Ledger refreshed', isError: false);
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      
+      // Debug logging
+      print('=== FirebaseFunctionsException Debug ===');
+      print('Code: ${e.code}');
+      print('Message: ${e.message}');
+      print('Details type: ${e.details.runtimeType}');
+      print('Details: ${e.details}');
+      print('========================================');
+      
+      // Extract detailed error information
+      final details = e.details;
+      String detailsText = '';
+      String step = '';
+      
+      if (details is Map) {
+        final originalError = details['originalError'];
+        final errorStep = details['step'];
+        final errorType = details['errorType'];
+        final stack = details['stack'];
+        
+        if (originalError != null) {
+          detailsText = originalError.toString();
+        }
+        if (errorStep != null) {
+          step = ' [Step: $errorStep]';
+        }
+        if (errorType != null && detailsText.isEmpty) {
+          detailsText = 'Error type: $errorType';
+        }
+        if (stack != null && detailsText.isEmpty) {
+          detailsText = stack.toString();
+        }
+      } else if (details != null) {
+        detailsText = details.toString();
+      }
+      
+      final serverMessage = detailsText.isNotEmpty
+          ? detailsText
+          : (e.message ?? 'Unknown function error');
+      
+      String userMessage;
+      if (e.code == 'internal') {
+        userMessage = 'Internal Server Error$step\n\nDetails: $serverMessage\n\nPlease check:\n• Account permissions\n• Network connectivity\n• Try again in a moment';
+      } else if (e.code == 'invalid-argument') {
+        userMessage = serverMessage;
+      } else if (e.code == 'permission-denied') {
+        userMessage = 'Permission denied. Please check your account access.';
+      } else if (e.code == 'unauthenticated') {
+        userMessage = 'Authentication required. Please sign in again.';
+      } else {
+        userMessage = 'Failed to refresh ledger$step\n\n$serverMessage';
+      }
+      
+      DashSnackbar.show(
+        context,
+        message: userMessage,
+        isError: true,
+      );
     } catch (e) {
+      if (!mounted) return;
       DashSnackbar.show(context,
           message: 'Failed to refresh ledger: $e', isError: true);
     } finally {
@@ -624,6 +695,183 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
           _refreshingLedgerId = null;
         });
       }
+    }
+  }
+
+  Future<void> _openEditDialog(_CombinedLedger ledger) async {
+    final orgId = context.read<OrganizationContextCubit>().state.organization?.id;
+    if (orgId == null) return;
+
+    final result = await showDialog<_AccountsLedgerCreateResult>(
+      context: context,
+      builder: (dialogContext) {
+        return _AccountsLedgerCreateDialog(
+          orgId: orgId,
+          initialName: ledger.name,
+          initialSelectedAccounts: ledger.accounts,
+          isEditing: true,
+        );
+      },
+    );
+
+    if (result == null || !mounted) return;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final batch = firestore.batch();
+
+      final updatedAccountsPayload = result.selectedAccounts
+          .map((account) => {
+                'type': _accountTypeToApi(account.type),
+                'id': account.id,
+                'name': account.name,
+              })
+          .toList();
+
+      final combinedRef = firestore.collection('COMBINED_ACCOUNTS').doc(ledger.id);
+      batch.set(
+        combinedRef,
+        {
+          'accountName': result.name,
+          'ledgerName': result.name,
+          'accounts': updatedAccountsPayload,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      final oldKeys = ledger.accounts.map((a) => a.key).toSet();
+      final newKeys = result.selectedAccounts.map((a) => a.key).toSet();
+
+      final removed = ledger.accounts.where((a) => !newKeys.contains(a.key));
+      final added = result.selectedAccounts.where((a) => !oldKeys.contains(a.key));
+
+      for (final account in removed) {
+        final collection = switch (account.type) {
+          _AccountType.employee => 'EMPLOYEES',
+          _AccountType.vendor => 'VENDORS',
+          _AccountType.client => 'CLIENTS',
+        };
+        final memberRef = firestore.collection(collection).doc(account.id);
+        batch.set(
+          memberRef,
+          {
+            'combinedAccountIds': FieldValue.arrayRemove([ledger.accountsLedgerId]),
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      for (final account in added) {
+        final collection = switch (account.type) {
+          _AccountType.employee => 'EMPLOYEES',
+          _AccountType.vendor => 'VENDORS',
+          _AccountType.client => 'CLIENTS',
+        };
+        final memberRef = firestore.collection(collection).doc(account.id);
+        batch.set(
+          memberRef,
+          {
+            'combinedAccountIds': FieldValue.arrayUnion([ledger.accountsLedgerId]),
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      await batch.commit();
+
+      setState(() {
+        _ledgers = _ledgers
+            .map(
+              (item) => item.id == ledger.id
+                  ? item.copyWith(name: result.name, accounts: result.selectedAccounts)
+                  : item,
+            )
+            .toList();
+      });
+      _ledgerCache[orgId] = _ledgers;
+
+      if (!mounted) return;
+      DashSnackbar.show(context, message: 'Ledger updated', isError: false);
+    } catch (e) {
+      if (!mounted) return;
+      DashSnackbar.show(context,
+          message: 'Failed to update ledger: $e', isError: true);
+    }
+  }
+
+  Future<void> _deleteCombinedLedger(_CombinedLedger ledger) async {
+    final orgId = context.read<OrganizationContextCubit>().state.organization?.id;
+    if (orgId == null) return;
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AuthColors.surface,
+        title: const Text('Delete Ledger', style: TextStyle(color: AuthColors.textMain)),
+        content: Text(
+          'Delete "${ledger.name}"? This cannot be undone.',
+          style: const TextStyle(color: AuthColors.textSub),
+        ),
+        actions: [
+          DashButton(
+            label: 'Cancel',
+            variant: DashButtonVariant.text,
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
+          DashButton(
+            label: 'Delete',
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !mounted) return;
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final batch = firestore.batch();
+
+      for (final account in ledger.accounts) {
+        final collection = switch (account.type) {
+          _AccountType.employee => 'EMPLOYEES',
+          _AccountType.vendor => 'VENDORS',
+          _AccountType.client => 'CLIENTS',
+        };
+        final memberRef = firestore.collection(collection).doc(account.id);
+        batch.set(
+          memberRef,
+          {
+            'combinedAccountIds': FieldValue.arrayRemove([ledger.accountsLedgerId]),
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      final generatedLedgers = await firestore
+          .collection('ACCOUNTS_LEDGERS')
+          .where('accountsLedgerId', isEqualTo: ledger.accountsLedgerId)
+          .get();
+      for (final doc in generatedLedgers.docs) {
+        batch.delete(doc.reference);
+      }
+
+      batch.delete(firestore.collection('COMBINED_ACCOUNTS').doc(ledger.id));
+
+      await batch.commit();
+
+      setState(() {
+        _ledgers = _ledgers.where((item) => item.id != ledger.id).toList();
+      });
+      _ledgerCache[orgId] = _ledgers;
+
+      if (!mounted) return;
+      DashSnackbar.show(context, message: 'Ledger deleted', isError: false);
+    } catch (e) {
+      if (!mounted) return;
+      DashSnackbar.show(context,
+          message: 'Failed to delete ledger: $e', isError: true);
     }
   }
 
@@ -681,9 +929,17 @@ class _AccountsLedgerCreateResult {
 }
 
 class _AccountsLedgerCreateDialog extends StatefulWidget {
-  const _AccountsLedgerCreateDialog({required this.orgId});
+  const _AccountsLedgerCreateDialog({
+    required this.orgId,
+    this.initialName,
+    this.initialSelectedAccounts = const <_AccountOption>[],
+    this.isEditing = false,
+  });
 
   final String orgId;
+  final String? initialName;
+  final List<_AccountOption> initialSelectedAccounts;
+  final bool isEditing;
 
   @override
   State<_AccountsLedgerCreateDialog> createState() =>
@@ -724,6 +980,10 @@ class _AccountsLedgerCreateDialogState
   @override
   void initState() {
     super.initState();
+    _nameController.text = widget.initialName ?? '';
+    for (final option in widget.initialSelectedAccounts) {
+      _selectedOptions[option.key] = option;
+    }
     _scrollController.addListener(_onScroll);
   }
 
@@ -1080,7 +1340,7 @@ class _AccountsLedgerCreateDialogState
           variant: DashButtonVariant.text,
         ),
         DashButton(
-          label: 'Create',
+          label: widget.isEditing ? 'Save' : 'Create',
           onPressed: () {
             final name = _nameController.text.trim();
             if (name.isEmpty) {
@@ -1172,6 +1432,8 @@ class _LedgerListView extends StatelessWidget {
     required this.ledgers,
     required this.onOpen,
     required this.onRefresh,
+    required this.onEdit,
+    required this.onDelete,
     required this.refreshingId,
     required this.isRefreshing,
   });
@@ -1179,6 +1441,8 @@ class _LedgerListView extends StatelessWidget {
   final List<_CombinedLedger> ledgers;
   final ValueChanged<_CombinedLedger> onOpen;
   final ValueChanged<String> onRefresh;
+  final ValueChanged<_CombinedLedger> onEdit;
+  final ValueChanged<_CombinedLedger> onDelete;
   final String? refreshingId;
   final bool isRefreshing;
 
@@ -1272,6 +1536,24 @@ class _LedgerListView extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined,
+                        size: 20, color: AuthColors.textSub),
+                    onPressed: () => onEdit(ledger),
+                    tooltip: 'Edit',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline,
+                        size: 20, color: AuthColors.error),
+                    onPressed: () => onDelete(ledger),
+                    tooltip: 'Delete',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                 ],
               ),
               onTap: () => onOpen(ledger),

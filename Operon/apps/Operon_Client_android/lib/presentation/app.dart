@@ -33,7 +33,6 @@ import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_selector/org_selector_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/app_update/app_update_bloc.dart';
-import 'package:dash_mobile/presentation/blocs/app_update/app_update_event.dart';
 import 'package:dash_mobile/presentation/widgets/caller_overlay_bootstrap.dart';
 import 'package:dash_mobile/presentation/widgets/notification_token_bootstrap.dart';
 import 'package:dash_mobile/presentation/widgets/textured_background.dart';

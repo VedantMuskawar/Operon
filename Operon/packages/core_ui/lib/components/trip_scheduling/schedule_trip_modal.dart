@@ -101,7 +101,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
   static const String _transportSelf = 'self';
 
   String? _selectedPhoneNumber;
-  String _paymentType = 'pay_later';
+  String _paymentType = 'pay_on_delivery';
   DateTime? _selectedDate;
   Vehicle? _selectedVehicle;
   int? _selectedSlot;

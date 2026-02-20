@@ -75,8 +75,13 @@ class DeliveryMemoDocument extends StatelessWidget {
     // If custom template, show custom template preview
     if (isCustomTemplate) {
       final customTemplateId = payload.dmSettings.customTemplateId!.trim();
-      if (customTemplateId == 'lakshmee_v1') {
-        return _buildLakshmeePreview();
+      if (customTemplateId == 'LIT1' ||
+          customTemplateId == 'LIT2' ||
+          customTemplateId == 'lakshmee_v1' ||
+          customTemplateId == 'lakshmee_v2') {
+        return _buildLakshmeePreview(
+          hidePriceFields: customTemplateId == 'LIT2' || customTemplateId == 'lakshmee_v2',
+        );
       }
       // For other custom templates, show message
       return Container(
@@ -864,8 +869,8 @@ class DeliveryMemoDocument extends StatelessWidget {
     );
   }
 
-  /// Build Lakshmee template preview (lakshmee_v1)
-  Widget _buildLakshmeePreview() {
+  /// Build Lakshmee template preview (LIT1/LIT2)
+  Widget _buildLakshmeePreview({required bool hidePriceFields}) {
     // Parse data similar to DmPrintData.fromMap
     final dmNumber = dmData['dmNumber'] as int? ??
         (dmData['dmNumber'] as num?)?.toInt() ??
@@ -1290,7 +1295,9 @@ class DeliveryMemoDocument extends StatelessWidget {
                                 '🔢 Quantity', quantity.toString(),
                                 isTotal: false),
                             _buildLakshmeeTableRow('💰 Unit Price',
-                                '₹${formatCurrency(unitPrice)}',
+                              hidePriceFields
+                                ? ''
+                                : '₹${formatCurrency(unitPrice)}',
                                 isTotal: false),
                             Container(
                               margin: const EdgeInsets.only(top: 2),
@@ -1302,7 +1309,10 @@ class DeliveryMemoDocument extends StatelessWidget {
                                         width: 1)),
                               ),
                               child: _buildLakshmeeTableRow(
-                                  '🧾 Total', '₹${formatCurrency(totalAmount)}',
+                                  '🧾 Total',
+                                  hidePriceFields
+                                    ? ''
+                                    : '₹${formatCurrency(totalAmount)}',
                                   isTotal: true),
                             ),
                             _buildLakshmeeTableRow(

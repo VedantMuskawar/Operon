@@ -279,7 +279,7 @@ class _TripWageEmployeeSelectionDialogState extends State<TripWageEmployeeSelect
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '₹${widget.totalWage.toStringAsFixed(2)}',
+                                  '₹${widget.totalWage.toStringAsFixed(4)}',
                                   style: TextStyle(
                                     color: theme.colorScheme.primary,
                                     fontSize: 18,
@@ -303,12 +303,12 @@ class _TripWageEmployeeSelectionDialogState extends State<TripWageEmployeeSelect
                                 const SizedBox(height: 4),
                                 Text(
                                   _sameEmployees
-                                      ? '₹${_totalWagePerEmployee.toStringAsFixed(2)}'
+                                      ? '₹${_totalWagePerEmployee.toStringAsFixed(4)}'
                                       : _loadingEmployeeIds.isNotEmpty && _unloadingEmployeeIds.isNotEmpty
-                                          ? '₹${((_loadingWage + _unloadingWage) / <dynamic>{..._loadingEmployeeIds, ..._unloadingEmployeeIds}.length).toStringAsFixed(2)}'
+                                          ? '₹${((_loadingWage + _unloadingWage) / <dynamic>{..._loadingEmployeeIds, ..._unloadingEmployeeIds}.length).toStringAsFixed(4)}'
                                           : _loadingEmployeeIds.isNotEmpty
-                                              ? '₹${_loadingWagePerEmployee.toStringAsFixed(2)}'
-                                              : '₹${_unloadingWagePerEmployee.toStringAsFixed(2)}',
+                                              ? '₹${_loadingWagePerEmployee.toStringAsFixed(4)}'
+                                              : '₹${_unloadingWagePerEmployee.toStringAsFixed(4)}',
                                   style: TextStyle(
                                     color: theme.colorScheme.primary,
                                     fontSize: 16,

@@ -25,7 +25,6 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
   late final TextEditingController _headerPhoneController;
   late final TextEditingController _headerGstNoController;
   late final TextEditingController _footerCustomTextController;
-  late final TextEditingController _customTemplateIdController;
 
   String? _logoImageUrl;
   File? _selectedLogoFile;
@@ -33,8 +32,11 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
   DmPrintOrientation _printOrientation = DmPrintOrientation.portrait;
   DmPaymentDisplay _paymentDisplay = DmPaymentDisplay.qrCode;
   DmTemplateType _templateType = DmTemplateType.universal;
+  String _selectedCustomTemplateId = 'LIT1';
   bool _settingsLoaded = false;
   final ImagePicker _imagePicker = ImagePicker();
+
+  static const List<String> _templateOptions = ['LIT1', 'LIT2'];
 
   @override
   void initState() {
@@ -44,7 +46,6 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
     _headerPhoneController = TextEditingController();
     _headerGstNoController = TextEditingController();
     _footerCustomTextController = TextEditingController();
-    _customTemplateIdController = TextEditingController();
 
     // Load existing settings when available
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -69,9 +70,16 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
       _printOrientation = settings.printOrientation;
       _paymentDisplay = settings.paymentDisplay;
       _templateType = settings.templateType;
-      _customTemplateIdController.text = settings.customTemplateId ?? '';
+      _selectedCustomTemplateId = _normalizeTemplateId(settings.customTemplateId);
       _settingsLoaded = true;
     });
+  }
+
+  String _normalizeTemplateId(String? templateId) {
+    final id = templateId?.trim();
+    if (id == 'LIT2' || id == 'lakshmee_v2') return 'LIT2';
+    if (id == 'LIT1' || id == 'lakshmee_v1') return 'LIT1';
+    return 'LIT1';
   }
 
   @override
@@ -81,7 +89,6 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
     _headerPhoneController.dispose();
     _headerGstNoController.dispose();
     _footerCustomTextController.dispose();
-    _customTemplateIdController.dispose();
     super.dispose();
   }
 
@@ -205,7 +212,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
       paymentDisplay: _paymentDisplay,
       templateType: _templateType,
       customTemplateId: _templateType == DmTemplateType.custom
-          ? _customTemplateIdController.text.trim()
+          ? _selectedCustomTemplateId
           : null,
     );
 
@@ -338,6 +345,85 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                   style: const TextStyle(color: AuthColors.textMain),
                                   decoration: _inputDecoration('Custom Text (Optional)'),
                                   maxLines: 3,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.paddingXL),
+                              // DM Template
+                              _buildSection(
+                                title: 'DM Template',
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Template Type',
+                                      style: TextStyle(
+                                        color: AuthColors.textMain,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: AppSpacing.paddingMD),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: _PrintOption(
+                                            label: 'Universal',
+                                            icon: Icons.style,
+                                            isSelected: _templateType == DmTemplateType.universal,
+                                            onTap: () => setState(() {
+                                              _templateType = DmTemplateType.universal;
+                                            }),
+                                          ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.paddingMD),
+                                        Expanded(
+                                          child: _PrintOption(
+                                            label: 'Custom',
+                                            icon: Icons.brush,
+                                            isSelected: _templateType == DmTemplateType.custom,
+                                            onTap: () => setState(() {
+                                              _templateType = DmTemplateType.custom;
+                                            }),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (_templateType == DmTemplateType.custom) ...[
+                                      const SizedBox(height: AppSpacing.paddingXL),
+                                      DropdownButtonFormField<String>(
+                                        value: _selectedCustomTemplateId,
+                                        decoration: _inputDecoration('Custom Template *'),
+                                        dropdownColor: AuthColors.surface,
+                                        style: const TextStyle(color: AuthColors.textMain),
+                                        iconEnabledColor: AuthColors.textSub,
+                                        items: _templateOptions
+                                            .map(
+                                              (id) => DropdownMenuItem<String>(
+                                                value: id,
+                                                child: Text(
+                                                  '$id${id == 'LIT2' ? ' (Blank Unit Price + Total)' : ''}',
+                                                  style: const TextStyle(color: AuthColors.textMain),
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (value) {
+                                          if (value == null) return;
+                                          setState(() {
+                                            _selectedCustomTemplateId = value;
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(height: AppSpacing.paddingXS),
+                                      const Text(
+                                        'LIT1: Standard template | LIT2: hides Unit Price and Total.',
+                                        style: TextStyle(
+                                          color: AuthColors.textSub,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.paddingXL),

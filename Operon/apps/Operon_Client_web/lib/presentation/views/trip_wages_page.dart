@@ -1005,7 +1005,7 @@ class _DMCard extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Total: ₹${tripWage!.totalWages!.toStringAsFixed(2)}',
+                                'Total: ₹${tripWage!.totalWages!.toStringAsFixed(4)}',
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.onSurface,
                                   fontSize: 14,
@@ -1013,7 +1013,7 @@ class _DMCard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                'Per Employee: ₹${(loadingWagePerEmployee + unloadingWagePerEmployee).toStringAsFixed(2)}',
+                                'Per Employee: ₹${(loadingWagePerEmployee + unloadingWagePerEmployee).toStringAsFixed(4)}',
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                   fontSize: 12,
@@ -1055,7 +1055,7 @@ class _DMCard extends StatelessWidget {
                                     children: [
                                       if (isAlsoUnloading) ...[
                                         Text(
-                                          'L: ₹${loadingWagePerEmployee.toStringAsFixed(2)}',
+                                          'L: ₹${loadingWagePerEmployee.toStringAsFixed(4)}',
                                           style: TextStyle(
                                             color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                             fontSize: 11,
@@ -1063,7 +1063,7 @@ class _DMCard extends StatelessWidget {
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
-                                          'U: ₹${unloadingWagePerEmployee.toStringAsFixed(2)}',
+                                          'U: ₹${unloadingWagePerEmployee.toStringAsFixed(4)}',
                                           style: TextStyle(
                                             color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                             fontSize: 11,
@@ -1072,7 +1072,7 @@ class _DMCard extends StatelessWidget {
                                         const SizedBox(width: 4),
                                       ] else
                                         Text(
-                                          'L: ₹${loadingWagePerEmployee.toStringAsFixed(2)}',
+                                          'L: ₹${loadingWagePerEmployee.toStringAsFixed(4)}',
                                           style: TextStyle(
                                             color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                             fontSize: 11,
@@ -1080,7 +1080,7 @@ class _DMCard extends StatelessWidget {
                                         ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        '₹${employeeTotalWage.toStringAsFixed(2)}',
+                                        '₹${employeeTotalWage.toStringAsFixed(4)}',
                                         style: TextStyle(
                                           color: Theme.of(context).colorScheme.primary,
                                           fontSize: 12,
@@ -1388,7 +1388,7 @@ class _WageSummaryTable extends StatelessWidget {
                               ),
                               _buildTableCell(
                                 context,
-                                '₹${totalWage.toStringAsFixed(2)}',
+                                '₹${totalWage.toStringAsFixed(4)}',
                                 isAmount: true,
                               ),
                             ],
@@ -1440,7 +1440,7 @@ class _WageSummaryTable extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '₹${summaryList.fold<double>(0.0, (sum, entry) => sum + (entry['totalWage'] as double)).toStringAsFixed(2)}',
+                    '₹${summaryList.fold<double>(0.0, (sum, entry) => sum + (entry['totalWage'] as double)).toStringAsFixed(4)}',
                     style: TextStyle(
                       color: theme.colorScheme.primary,
                       fontSize: 14,

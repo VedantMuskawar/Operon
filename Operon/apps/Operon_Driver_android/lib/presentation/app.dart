@@ -7,9 +7,13 @@ import 'package:operon_driver_android/config/app_theme.dart';
 import 'package:operon_driver_android/core/services/background_sync_service.dart';
 import 'package:operon_driver_android/core/services/dm_print_helper.dart';
 import 'package:operon_driver_android/core/services/location_service.dart';
+import 'package:operon_driver_android/data/datasources/payment_accounts_data_source.dart';
+import 'package:operon_driver_android/data/repositories/dm_settings_repository.dart';
+import 'package:operon_driver_android/data/repositories/payment_accounts_repository.dart';
 import 'package:operon_driver_android/data/datasources/users_data_source.dart';
 import 'package:operon_driver_android/data/repositories/users_repository.dart';
 import 'package:operon_driver_android/data/services/app_update_service.dart';
+import 'package:operon_driver_android/data/services/dm_print_service.dart';
 import 'package:operon_driver_android/presentation/blocs/app_update/app_update_bloc.dart';
 import 'package:operon_driver_android/presentation/blocs/trip/trip_bloc.dart';
 
@@ -59,6 +63,23 @@ class OperonDriverApp extends StatelessWidget {
       serverUrl: 'https://operon-updates-nlwuwnlpia-uc.a.run.app',
     );
 
+    final dmSettingsRepository = DmSettingsRepository(
+      dataSource: DmSettingsDataSource(
+        firestore: authRepository.firestore,
+      ),
+    );
+
+    final paymentAccountsRepository = PaymentAccountsRepository(
+      dataSource: PaymentAccountsDataSource(
+        firestore: authRepository.firestore,
+      ),
+    );
+
+    final dmPrintService = DmPrintService(
+      dmSettingsRepository: dmSettingsRepository,
+      paymentAccountsRepository: paymentAccountsRepository,
+    );
+
     final dmPrintHelper = DmPrintHelper();
     final router = buildRouter();
 
@@ -66,6 +87,9 @@ class OperonDriverApp extends StatelessWidget {
       providers: [
         RepositoryProvider.value(value: authRepository),
         RepositoryProvider.value(value: organizationRepository),
+        RepositoryProvider.value(value: dmSettingsRepository),
+        RepositoryProvider.value(value: paymentAccountsRepository),
+        RepositoryProvider.value(value: dmPrintService),
         RepositoryProvider.value(value: dmPrintHelper),
         RepositoryProvider.value(value: appAccessRolesRepository),
         RepositoryProvider.value(value: scheduledTripsRepository),

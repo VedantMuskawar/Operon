@@ -20,7 +20,12 @@ import 'package:operon_driver_android/presentation/widgets/driver_map.dart';
 import 'package:operon_driver_android/presentation/widgets/hud_overlay.dart';
 
 class DriverHomeScreen extends StatefulWidget {
-  const DriverHomeScreen({super.key});
+  const DriverHomeScreen({
+    super.key,
+    this.initialTrip,
+  });
+
+  final Map<String, dynamic>? initialTrip;
 
   @override
   State<DriverHomeScreen> createState() => _DriverHomeScreenState();
@@ -43,6 +48,9 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialTrip != null) {
+      _selectedTrip = Map<String, dynamic>.from(widget.initialTrip!);
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissions());
   }
 
@@ -662,10 +670,11 @@ class _ControlPanel extends StatelessWidget {
     final border = AuthColors.textMainWithOpacity(0.12);
 
     final isLoading = tripState.status == ViewStatus.loading;
-    final isActive = tripState.isTracking;
 
     // Determine button based on trip status
     final tripStatus = selectedTrip != null ? getTripStatus(selectedTrip!) : null;
+    final isStatusTracking = tripStatus == 'dispatched' || tripStatus == 'delivered';
+    final isActive = tripState.isTracking || isStatusTracking;
     final canDispatch = (tripStatus == 'scheduled' || tripStatus == 'pending');
     final canDeliver = tripStatus == 'dispatched';
     final canReturn = tripStatus == 'delivered';
@@ -797,6 +806,14 @@ class _ControlPanel extends StatelessWidget {
 
                   await Future.delayed(const Duration(milliseconds: 100));
 
+                  final updatedTrip = Map<String, dynamic>.from(selectedTrip!);
+                  updatedTrip['tripStatus'] = 'dispatched';
+                  updatedTrip['orderStatus'] = 'dispatched';
+                  if (reading != null) {
+                    updatedTrip['initialReading'] = reading;
+                  }
+                  onSelectTrip(updatedTrip);
+
                   if (context.mounted) {
                     context.read<TripBloc>().add(StartTrip(tripId: tripId, clientId: clientId));
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -821,6 +838,14 @@ class _ControlPanel extends StatelessWidget {
                     deliveredByRole: 'driver',
                     source: 'driver',
                   );
+
+                  final updatedTrip = Map<String, dynamic>.from(selectedTrip!);
+                  updatedTrip['tripStatus'] = 'delivered';
+                  updatedTrip['orderStatus'] = 'delivered';
+                  if (photoUrl.isNotEmpty) {
+                    updatedTrip['deliveryPhotoUrl'] = photoUrl;
+                  }
+                  onSelectTrip(updatedTrip);
 
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -857,6 +882,18 @@ class _ControlPanel extends StatelessWidget {
                     returnedByRole: 'driver',
                     source: 'driver',
                   );
+
+                  final updatedTrip = Map<String, dynamic>.from(selectedTrip!);
+                  updatedTrip['tripStatus'] = 'returned';
+                  updatedTrip['orderStatus'] = 'returned';
+                  if (reading != null) {
+                    updatedTrip['finalReading'] = reading;
+                  }
+                  if (distance != null) {
+                    updatedTrip['distanceTravelled'] = distance;
+                  }
+                  updatedTrip['computedTravelledDistance'] = computedDistance;
+                  onSelectTrip(updatedTrip);
 
                   await Future.delayed(const Duration(milliseconds: 100));
 

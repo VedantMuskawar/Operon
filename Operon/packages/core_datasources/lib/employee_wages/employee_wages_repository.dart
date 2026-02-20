@@ -102,6 +102,21 @@ class EmployeeWagesRepository {
     );
   }
 
+  /// Watch ledger transactions for a selected ledger employee id.
+  /// Backward-compatible wrapper to make call sites explicit when user can
+  /// choose between multiple employee ledgers (driver/loader, etc.).
+  Stream<List<Map<String, dynamic>>> watchSelectedEmployeeLedgerTransactions({
+    required String ledgerEmployeeId,
+    String? financialYear,
+    int limit = 100,
+  }) {
+    return watchEmployeeLedgerTransactions(
+      employeeId: ledgerEmployeeId,
+      financialYear: financialYear,
+      limit: limit,
+    );
+  }
+
   /// Fetch employee transactions
   Future<List<Transaction>> fetchEmployeeTransactions({
     required String organizationId,

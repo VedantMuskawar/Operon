@@ -2,6 +2,7 @@ import 'package:core_models/core_models.dart';
 import 'package:core_services/core_services.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AttendanceRepositoryImpl implements AttendanceRepository {
   AttendanceRepositoryImpl({
@@ -116,12 +117,31 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
 
     final financialYear = _getFinancialYear(monthStart);
 
-    final attendanceDocs = await _attendanceDataSource
-        .fetchAttendanceForMonthForOrganization(
-      organizationId: organizationId,
-      financialYear: financialYear,
-      yearMonth: yearMonth,
-    );
+    List<EmployeeAttendance> attendanceDocs;
+    try {
+      attendanceDocs = await _attendanceDataSource
+          .fetchAttendanceForMonthForOrganization(
+        organizationId: organizationId,
+        financialYear: financialYear,
+        yearMonth: yearMonth,
+      );
+    } on FirebaseException catch (e) {
+      if (e.code != 'permission-denied') rethrow;
+
+      // Fallback path: query each employee ledger doc directly.
+      // This avoids collectionGroup permission edge-cases in some rule setups.
+      final monthlyDocs = await Future.wait(
+        employees.map(
+          (employee) => _attendanceDataSource.fetchAttendanceForMonth(
+            employeeId: employee.id,
+            financialYear: financialYear,
+            yearMonth: yearMonth,
+          ),
+        ),
+      );
+
+      attendanceDocs = monthlyDocs.whereType<EmployeeAttendance>().toList();
+    }
 
     final attendanceByEmployeeId = <String, EmployeeAttendance>{
       for (final attendance in attendanceDocs) attendance.employeeId: attendance,

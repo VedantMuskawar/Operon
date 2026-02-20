@@ -27,7 +27,9 @@ export * from './production-batches';
 export * from './trip-wages';
 export * from './sync';
 // export * from './ledger-maintenance'; // Removed to avoid LedgerType export ambiguity
+export { generateAccountsLedger } from './ledger-maintenance/accounts-ledger';
 export * from './employees/employee-analytics';
+export * from './employees/validate-ledger-access';
 export * from './geofences';
 export * from './edd';
 export * from './whatsapp/whatsapp-message-queue';

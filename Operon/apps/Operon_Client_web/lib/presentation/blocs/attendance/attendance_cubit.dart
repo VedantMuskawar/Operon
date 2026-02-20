@@ -108,6 +108,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         selectedYearMonth: yearMonth,
       ));
     } catch (e) {
+      print('❌ Error loading attendance for $yearMonth: $e');
       emit(state.copyWith(
         status: ViewStatus.failure,
         message: 'Unable to load attendance. Please try again.',
@@ -156,6 +157,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         selectedEndDate: endDate,
       ));
     } catch (e) {
+      print('❌ Error loading attendance for date range: $e');
       emit(state.copyWith(
         status: ViewStatus.failure,
         message: 'Unable to load attendance. Please try again.',

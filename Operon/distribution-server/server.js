@@ -182,20 +182,37 @@ app.use('/apks', (req, res) => {
 // Version registry - can be moved to database
 const versionRegistry = {
   'operon-client': {
-    currentVersion: '1.1.0',
-    currentBuildCode: 3,
-    releaseUrl: '/api/download/operon-client/1.1.0',
+    currentVersion: '1.2.2',
+    currentBuildCode: 6,
+    releaseUrl: '/api/download/operon-client/1.2.2',
     releaseDate: new Date().toISOString(),
-    releaseNotes: `Version 1.1.0 - Updates
-• Performance improvements
-• Stability fixes
-• Update delivery improvements`,
+    releaseNotes: `Version 1.2.2 - Production release
+• Updated APK delivery and distribution metadata
+• Stability and reliability improvements`,
     mandatory: false,
     minSdkVersion: 21,
     targetSdkVersion: 34,
-    checksum: 'dac8fbcb1e975abf51c7fbf214eb610a',
-    size: 80060240, // bytes
+    checksum: '4201891d0ee39e53a54b1f080fa6c09e',
+    size: 80437664, // bytes
     changelog: [
+      {
+        version: '1.2.2',
+        buildCode: 6,
+        date: new Date().toISOString(),
+        notes: 'Production release with updated distribution metadata and stability improvements'
+      },
+      {
+        version: '1.2.1',
+        buildCode: 5,
+        date: new Date().toISOString(),
+        notes: 'Bug fixes and stability improvements'
+      },
+      {
+        version: '1.2.0',
+        buildCode: 4,
+        date: new Date().toISOString(),
+        notes: 'UI/UX improvements - defaults, routing, and new features'
+      },
       {
         version: '1.1.0',
         buildCode: 3,

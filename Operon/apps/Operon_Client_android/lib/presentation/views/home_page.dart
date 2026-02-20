@@ -534,12 +534,10 @@ class _HomeSettingsDrawer extends StatelessWidget {
                 Future.microtask(() => context.go('/payment-accounts'));
               }
             : null,
-        onOpenDmSettings: isAdminRole
-            ? () {
-                Scaffold.of(context).closeEndDrawer();
-                Future.microtask(() => context.go('/dm-settings'));
-              }
-            : null,
+        onOpenDmSettings: () {
+          Scaffold.of(context).closeEndDrawer();
+          Future.microtask(() => context.go('/dm-settings'));
+        },
         onOpenExpenseSubCategories: isAdminRole
             ? () {
                 Scaffold.of(context).closeEndDrawer();

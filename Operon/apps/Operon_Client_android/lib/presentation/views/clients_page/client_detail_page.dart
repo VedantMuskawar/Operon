@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_ui/core_ui.dart' show AuthColors;
+import 'package:dash_mobile/shared/constants/app_colors.dart';
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/data/services/dm_print_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/presentation/views/orders/create_order_page.dart';
 import 'package:dash_mobile/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/order_tile.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
@@ -70,7 +72,10 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.avatarSM),
+                  IconButton(
+                    onPressed: _editClient,
+                    icon: const Icon(Icons.edit, color: AuthColors.textSub),
+                  ),
                 ],
               ),
             ),
@@ -258,6 +263,21 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
         SnackBar(content: Text('Unable to delete client: $error')),
       );
     }
+  }
+
+  void _editClient() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AuthColors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _EditClientSheet(
+        client: widget.client,
+        onUpdated: () {
+          // Refresh the page
+          setState(() {});
+        },
+      ),
+    );
   }
 }
 
@@ -806,33 +826,82 @@ class _PendingOrdersSectionState extends State<_PendingOrdersSection> {
               ),
             )
           : _orders.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No pending orders for this client.',
-                    style: TextStyle(color: AuthColors.textSub),
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'No pending orders for this client.',
+                        style: TextStyle(color: AuthColors.textSub),
+                      ),
+                      const SizedBox(height: AppSpacing.paddingLG),
+                      FilledButton.icon(
+                        onPressed: () => _navigateToCreateOrder(context),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Create New Order'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.paddingXL,
+                            vertical: AppSpacing.paddingMD,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 )
-              : ListView.separated(
+              : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  itemCount: _orders.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(height: AppSpacing.paddingMD),
+                  itemCount: _orders.length + 1,
                   itemBuilder: (context, index) {
-                    final order = _orders[index];
-                    return RepaintBoundary(
-                      child: OrderTile(
-                        order: order,
-                        onTripsUpdated: () {
-                          // Refresh is handled by stream
-                        },
-                        onDeleted: () {
-                          // Refresh is handled by stream
-                        },
+                    if (index == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+                        child: FilledButton.icon(
+                          onPressed: () => _navigateToCreateOrder(context),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Create New Order'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      );
+                    }
+                    final orderIndex = index - 1;
+                    final order = _orders[orderIndex];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+                      child: RepaintBoundary(
+                        child: OrderTile(
+                          order: order,
+                          onTripsUpdated: () {
+                            // Refresh is handled by stream
+                          },
+                          onDeleted: () {
+                            // Refresh is handled by stream
+                          },
+                        ),
                       ),
                     );
                   },
                 ),
     );
+  }
+
+  void _navigateToCreateOrder(BuildContext context) {
+    // Get the client from parent widget's state
+    final clientDetailState = context.findAncestorStateOfType<_ClientDetailPageState>();
+    if (clientDetailState != null) {
+      final client = clientDetailState.widget.client;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CreateOrderPage(client: client),
+          fullscreenDialog: true,
+        ),
+      );
+    }
   }
 }
 
@@ -2246,6 +2315,186 @@ class _TabButton extends StatelessWidget {
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EditClientSheet extends StatefulWidget {
+  const _EditClientSheet({
+    required this.client,
+    required this.onUpdated,
+  });
+
+  final ClientRecord client;
+  final VoidCallback onUpdated;
+
+  @override
+  State<_EditClientSheet> createState() => _EditClientSheetState();
+}
+
+class _EditClientSheetState extends State<_EditClientSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.client.name);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveChanges() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      final newName = _nameController.text.trim();
+      await FirebaseFirestore.instance
+          .collection('CLIENTS')
+          .doc(widget.client.id)
+          .update({
+        'name': newName,
+        'name_lc': newName.toLowerCase(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+      
+      widget.onUpdated();
+      Navigator.of(context).pop();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Client updated successfully')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update client: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: AppSpacing.paddingXL,
+        right: AppSpacing.paddingXL,
+        top: AppSpacing.paddingXL,
+        bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.paddingXL,
+      ),
+      decoration: const BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(AppSpacing.radiusXXL),
+          topRight: Radius.circular(AppSpacing.radiusXXL),
+        ),
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Edit Client',
+              style: AppTypography.withColor(
+                AppTypography.h2,
+                AuthColors.textMain,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.paddingLG),
+            TextFormField(
+              controller: _nameController,
+              decoration: _inputDecoration('Client Name'),
+              style: const TextStyle(color: AuthColors.textMain),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter a name';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: AppSpacing.paddingXL),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AuthColors.textSub,
+                      side: const BorderSide(color: AuthColors.textSub),
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.paddingMD),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _isSaving ? null : _saveChanges,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
+                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(AuthColors.textMain),
+                            ),
+                          )
+                        : const Text('Save'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: AuthColors.surface,
+      labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.2)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.2)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        borderSide: const BorderSide(color: AuthColors.primary, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        borderSide: const BorderSide(color: AuthColors.error),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        borderSide: const BorderSide(color: AuthColors.error, width: 2),
       ),
     );
   }

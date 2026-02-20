@@ -18,6 +18,16 @@ class ScheduledTripsRepository {
     );
   }
 
+  Stream<List<Map<String, dynamic>>> watchScheduledTripsForDate({
+    required String organizationId,
+    required DateTime scheduledDate,
+  }) {
+    return _dataSource.watchScheduledTripsForDate(
+      organizationId: organizationId,
+      scheduledDate: scheduledDate,
+    );
+  }
+
   Future<void> updateTripStatus({
     required String tripId,
     required String tripStatus,

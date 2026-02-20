@@ -82,12 +82,12 @@ class HomeCubit extends Cubit<HomeState> {
     final visible = <int>[0]; // Overview is always visible
 
     if (appAccessRole == null) {
-      visible.add(5); // Cash Ledger: page access for all
+      visible.add(4); // Cash Ledger: accessible for all when no role
       return visible;
     }
 
     // Check section access using the role's canAccessSection method
-    // Section indices: 0=Overview, 1=PendingOrders, 2=ScheduleOrders, 3=OrdersMap, 4=Analytics, 5=Attendance
+    // Section indices (Android): 0=Overview, 1=PendingOrders, 2=ScheduleOrders, 3=OrdersMap, 4=CashLedger, 5=Attendance
     final canAccessPendingOrders = _canAccessSection(appAccessRole, 'pendingOrders');
     if (canAccessPendingOrders) {
       visible.add(1);
@@ -100,15 +100,12 @@ class HomeCubit extends Cubit<HomeState> {
     if (_canAccessSection(appAccessRole, 'ordersMap')) {
       visible.add(3);
     }
-    if (_canAccessSection(appAccessRole, 'analyticsDashboard')) {
+    // Cash Ledger section access control
+    if (_canAccessSection(appAccessRole, 'cashLedger')) {
       visible.add(4);
     }
     // Attendance (section 5 on Android) is accessible if user can access employees page
     if (_canAccessPage(appAccessRole, 'employees')) {
-      visible.add(5);
-    }
-    // Cash Ledger (section 5 on web as 6th nav item): page access for all; Verify/Unverify remain admin-only in UI
-    if (!visible.contains(5)) {
       visible.add(5);
     }
 

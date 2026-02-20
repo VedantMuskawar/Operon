@@ -2,9 +2,9 @@ import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:operon_auth_flow/operon_auth_flow.dart';
-import 'package:operon_driver_android/core/services/dm_print_helper.dart';
+import 'package:operon_driver_android/data/services/dm_print_service.dart';
 import 'package:operon_driver_android/core/utils/trip_status_utils.dart';
-import 'package:operon_driver_android/presentation/widgets/driver_dm_print_sheet.dart';
+import 'package:operon_driver_android/presentation/widgets/dm_print_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class DriverMissionCard extends StatelessWidget {
@@ -12,10 +12,12 @@ class DriverMissionCard extends StatelessWidget {
     super.key,
     required this.trip,
     required this.onTap,
+    this.isReadOnly = false,
   });
 
   final Map<String, dynamic> trip;
   final VoidCallback onTap;
+  final bool isReadOnly;
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
@@ -76,22 +78,22 @@ class DriverMissionCard extends StatelessWidget {
       }
       return;
     }
-    final helper = context.read<DmPrintHelper>();
+    final dmPrintService = context.read<DmPrintService>();
     final dmNumber = trip['dmNumber'] as int?;
     if (dmNumber == null) return;
-    final dmData = await helper.fetchDmByNumberOrId(
+    final dmData = await dmPrintService.fetchDmByNumberOrId(
       organizationId: org.id,
       dmNumber: dmNumber,
       dmId: trip['dmId'] as String?,
       tripData: trip,
     );
     if (dmData == null || !context.mounted) return;
-    showDriverDmPrintSheet(
+    await DmPrintDialog.show(
       context: context,
+      dmPrintService: dmPrintService,
       organizationId: org.id,
       dmData: dmData,
       dmNumber: dmNumber,
-      dmPrintHelper: helper,
     );
   }
 
@@ -138,6 +140,20 @@ class DriverMissionCard extends StatelessWidget {
     }
   }
 
+  int _getFixedQuantityPerTrip() {
+    final items = trip['items'];
+    if (items is! List || items.isEmpty) return 0;
+
+    int totalFixedQuantity = 0;
+    for (final item in items) {
+      if (item is Map<String, dynamic>) {
+        final qty = (item['fixedQuantityPerTrip'] as num?)?.toInt() ?? 0;
+        totalFixedQuantity += qty;
+      }
+    }
+    return totalFixedQuantity;
+  }
+
   @override
   Widget build(BuildContext context) {
     final slot = trip['slot'] as int?;
@@ -150,6 +166,7 @@ class DriverMissionCard extends StatelessWidget {
         ? '${deliveryZone['region'] ?? ''}, ${deliveryZone['city_name'] ?? deliveryZone['city'] ?? ''}'
         : 'Location details inside';
     final statusColor = _getStatusColor(status);
+    final fixedQuantityPerTrip = _getFixedQuantityPerTrip();
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -170,7 +187,7 @@ class DriverMissionCard extends StatelessWidget {
         children: [
           // Tappable content area
           InkWell(
-            onTap: onTap,
+            onTap: isReadOnly ? null : onTap,
             borderRadius: BorderRadius.circular(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,6 +290,40 @@ class DriverMissionCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (fixedQuantityPerTrip > 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AuthColors.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AuthColors.textMainWithOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.inventory_2_outlined,
+                          size: 13,
+                          color: AuthColors.textMain,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Fixed Qty: $fixedQuantityPerTrip',
+                          style: const TextStyle(
+                            color: AuthColors.textMain,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -363,15 +414,17 @@ class DriverMissionCard extends StatelessWidget {
                   onTap: () => _callClient(context),
                 ),
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.map,
-                  label: 'Map',
-                  color: AuthColors.info.withOpacity(0.3),
-                  onTap: () => _openMap(context),
+              if (!isReadOnly) ...[
+                const SizedBox(width: 6),
+                Expanded(
+                  child: _ActionButton(
+                    icon: Icons.map,
+                    label: 'Map',
+                    color: AuthColors.info.withOpacity(0.3),
+                    onTap: () => _openMap(context),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ],

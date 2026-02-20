@@ -468,10 +468,10 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
     if (method?.config is ProductionWageConfig) {
       final config = method!.config as ProductionWageConfig;
       _productionPriceController = TextEditingController(
-        text: config.productionPricePerUnit.toStringAsFixed(2),
+        text: config.productionPricePerUnit.toStringAsFixed(4),
       );
       _stackingPriceController = TextEditingController(
-        text: config.stackingPricePerUnit.toStringAsFixed(2),
+        text: config.stackingPricePerUnit.toStringAsFixed(4),
       );
       _requiresBatchApproval = config.requiresBatchApproval;
       _autoCalculateOnRecord = config.autoCalculateOnRecord;
@@ -733,7 +733,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Wage: ₹${entry.value.toStringAsFixed(2)}',
+                      'Wage: ₹${entry.value.toStringAsFixed(4)}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
@@ -955,7 +955,7 @@ class _QuantityWageDialogState extends State<_QuantityWageDialog> {
     super.initState();
     _quantityController = TextEditingController(text: widget.currentQuantity ?? '');
     _wageController = TextEditingController(
-      text: widget.currentWage?.toStringAsFixed(2) ?? '',
+      text: widget.currentWage?.toStringAsFixed(4) ?? '',
     );
   }
 

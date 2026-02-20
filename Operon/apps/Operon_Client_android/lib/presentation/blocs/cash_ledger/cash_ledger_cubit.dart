@@ -809,7 +809,7 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
     DateTime endDate,
   ) {
     return list.where((tx) {
-      final txDate = tx.createdAt ?? DateTime(1970);
+      final txDate = tx.effectiveDate;
       final txDateOnly = DateTime(txDate.year, txDate.month, txDate.day);
       final startOnly =
           DateTime(startDate.year, startDate.month, startDate.day);

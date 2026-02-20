@@ -63,54 +63,88 @@ class CallOverlayWidget extends StatelessWidget {
             ),
             child: BlocBuilder<CallOverlayBloc, CallOverlayState>(
               builder: (context, state) {
-                final detailWidgets = <Widget>[];
-                if (state.scheduledTrip != null) {
-                  detailWidgets
-                    ..add(_buildScheduledTrip(state.scheduledTrip!))
-                    ..add(const SizedBox(height: AppSpacing.paddingMD));
-                }
-                if (state.pendingOrder != null &&
-                    state.pendingOrder!.status != 'completed') {
-                  detailWidgets
-                    ..add(_buildPendingOrder(state.pendingOrder!))
-                    ..add(const SizedBox(height: AppSpacing.paddingMD));
-                }
-                if (state.lastTransaction != null) {
-                  detailWidgets.add(_buildLastTransaction(state.lastTransaction!));
-                }
+                try {
+                  final detailWidgets = <Widget>[];
+                  if (state.scheduledTrip != null) {
+                    try {
+                      detailWidgets
+                        ..add(_buildScheduledTrip(state.scheduledTrip!))
+                        ..add(const SizedBox(height: AppSpacing.paddingMD));
+                    } catch (e) {
+                      debugPrint('❌ Error building scheduled trip: $e');
+                      detailWidgets.add(Text('Error: $e', style: const TextStyle(color: Colors.red, fontSize: 10)));
+                    }
+                  }
+                  if (state.pendingOrder != null &&
+                      state.pendingOrder!.status != 'completed') {
+                    try {
+                      detailWidgets
+                        ..add(_buildPendingOrder(state.pendingOrder!))
+                        ..add(const SizedBox(height: AppSpacing.paddingMD));
+                    } catch (e) {
+                      debugPrint('❌ Error building pending order: $e');
+                      detailWidgets.add(Text('Error: $e', style: const TextStyle(color: Colors.red, fontSize: 10)));
+                    }
+                  }
+                  if (state.lastTransaction != null) {
+                    try {
+                      detailWidgets.add(_buildLastTransaction(state.lastTransaction!));
+                    } catch (e) {
+                      debugPrint('❌ Error building last transaction: $e');
+                      detailWidgets.add(Text('Error: $e', style: const TextStyle(color: Colors.red, fontSize: 10)));
+                    }
+                  }
 
-                return SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildHeader(state),
-                      if (state.error != null) _buildError(state.error!),
-                      if (state.isLoadingClient)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(
-                              vertical: AppSpacing.paddingMD),
-                          child: Center(
-                              child: CircularProgressIndicator(strokeWidth: 2)),
-                        )
-                      else ...[
-                        if (detailWidgets.isNotEmpty) ...detailWidgets,
-                        if (state.isLoadingDetails)
+                  return SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildHeader(state),
+                        if (state.error != null) _buildError(state.error!),
+                        if (state.isLoadingClient)
                           const Padding(
-                            padding: EdgeInsets.only(top: AppSpacing.paddingSM),
+                            padding: EdgeInsets.symmetric(
+                                vertical: AppSpacing.paddingMD),
                             child: Center(
-                              child: SizedBox(
-                                width: 16,
-                                height: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(strokeWidth: 2)),
+                          )
+                        else ...[
+                          if (detailWidgets.isNotEmpty) ...detailWidgets,
+                          if (state.isLoadingDetails)
+                            const Padding(
+                              padding: EdgeInsets.only(top: AppSpacing.paddingSM),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                ),
                               ),
                             ),
-                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                );
+                    ),
+                  );
+                } catch (e) {
+                  debugPrint('❌ CRITICAL: Error in CallOverlayWidget.build(): $e');
+                  return Material(
+                    color: Colors.red.shade800,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Widget Error', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text(e.toString(), style: const TextStyle(color: Colors.white, fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
               },
             ),
           ),

@@ -256,6 +256,13 @@ class _UserTile extends StatelessWidget {
                     style: const TextStyle(color: Colors.white38, fontSize: 11),
                   ),
                 ],
+                if (user.ledgerEmployeeIds.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Linked Employees: ${user.ledgerEmployeeIds.length}',
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                ],
               ],
             ),
           ),
@@ -289,7 +296,8 @@ class _UserDialogState extends State<_UserDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   AppAccessRole? _selectedAppAccessRole;
-  String? _selectedEmployeeId;
+  final Set<String> _selectedEmployeeIds = <String>{};
+  String? _selectedPrimaryEmployeeId;
   bool _isSubmitting = false;
   bool _isLoadingEmployees = true;
   bool _isLoadingAppAccessRoles = true;
@@ -310,7 +318,17 @@ class _UserDialogState extends State<_UserDialog> {
     final user = widget.user;
     _nameController = TextEditingController(text: user?.name ?? '');
     _phoneController = TextEditingController(text: user?.phone ?? '');
-    _selectedEmployeeId = user?.employeeId;
+    final initialIds = <String>{
+      ...?user?.ledgerEmployeeIds,
+      if (user?.trackingEmployeeId != null && user!.trackingEmployeeId!.isNotEmpty)
+        user.trackingEmployeeId!,
+      if (user?.employeeId != null && user!.employeeId.isNotEmpty)
+        user.employeeId,
+    };
+    _selectedEmployeeIds.addAll(initialIds);
+    _selectedPrimaryEmployeeId = user?.defaultLedgerEmployeeId ??
+        user?.trackingEmployeeId ??
+        user?.employeeId;
     _loadEmployees();
     _loadAppAccessRoles();
   }
@@ -513,41 +531,7 @@ class _UserDialogState extends State<_UserDialog> {
                     ),
                   )
                 else
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedEmployeeId,
-                    dropdownColor: const Color(0xFF1B1B2C),
-                    style: const TextStyle(color: Colors.white),
-                    items: _employees
-                        .map(
-                          (employee) => DropdownMenuItem(
-                            value: employee.id,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(employee.name),
-                                if (employee.jobRoleTitles.isNotEmpty)
-                                  Text(
-                                    employee.jobRoleTitles,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.6),
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedEmployeeId = value;
-                      });
-                    },
-                    decoration: _inputDecoration('Employee *'),
-                    validator: (value) =>
-                        value == null ? 'Select an employee' : null,
-                  ),
+                  _buildEmployeeMultiSelect(),
               ],
             ],
           ),
@@ -575,20 +559,33 @@ class _UserDialogState extends State<_UserDialog> {
                     return;
                   }
                   final isAdmin = appAccessRole.isAdmin;
-                  if (!isAdmin && _selectedEmployeeId == null) {
+                  if (!isAdmin && _selectedEmployeeIds.isEmpty) {
                     DashSnackbar.show(
                       context,
-                      message: 'Select an employee (required)',
+                      message: 'Select at least one employee (required)',
                       isError: true,
                     );
                     return;
                   }
 
+                  if (!isAdmin &&
+                      (_selectedPrimaryEmployeeId == null ||
+                          !_selectedEmployeeIds.contains(_selectedPrimaryEmployeeId))) {
+                    _selectedPrimaryEmployeeId = _selectedEmployeeIds.first;
+                  }
+
                   setState(() => _isSubmitting = true);
                   try {
+                    final navigator = Navigator.of(context);
                     final usersCubit = context.read<UsersCubit>();
                     // Normalize phone number: add +91 prefix if not present
                     final phoneNumber = _normalizePhoneNumber(_phoneController.text.trim());
+                    final selectedIds = _selectedEmployeeIds.toList();
+                    final primaryId = isAdmin
+                        ? ''
+                        : (_selectedPrimaryEmployeeId ??
+                            (selectedIds.isNotEmpty ? selectedIds.first : ''));
+
                     final user = OrganizationUser(
                       id: widget.user?.id ?? '',
                       name: _nameController.text.trim(),
@@ -596,10 +593,13 @@ class _UserDialogState extends State<_UserDialog> {
                       appAccessRoleId: appAccessRole.id,
                       appAccessRole: appAccessRole,
                       organizationId: usersCubit.organizationId,
-                      employeeId: _selectedEmployeeId ?? '',
+                      employeeId: primaryId,
+                      trackingEmployeeId: isAdmin ? null : primaryId,
+                      defaultLedgerEmployeeId: isAdmin ? null : primaryId,
+                      ledgerEmployeeIds: isAdmin ? const [] : selectedIds,
                     );
                     await usersCubit.upsertUser(user);
-                    if (mounted) Navigator.of(context).pop();
+                    if (mounted) navigator.pop();
                   } finally {
                     if (mounted) {
                       setState(() => _isSubmitting = false);
@@ -618,6 +618,153 @@ class _UserDialogState extends State<_UserDialog> {
     if (hex.length == 6 || hex.length == 7) buffer.write('ff');
     buffer.write(hex.replaceFirst('#', ''));
     return Color(int.parse(buffer.toString(), radix: 16));
+  }
+
+  Widget _buildEmployeeMultiSelect() {
+    final selectedEmployees = _employees
+        .where((employee) => _selectedEmployeeIds.contains(employee.id))
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InputDecorator(
+          decoration: _inputDecoration('Employees *'),
+          child: selectedEmployees.isEmpty
+              ? const Text(
+                  'No employees selected',
+                  style: TextStyle(color: Colors.white70),
+                )
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: selectedEmployees
+                      .map(
+                        (employee) => Chip(
+                          label: Text(employee.name),
+                          backgroundColor: const Color(0x22FFFFFF),
+                          side: const BorderSide(color: Colors.white24),
+                        ),
+                      )
+                      .toList(),
+                ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _openEmployeeSelector,
+            icon: const Icon(Icons.groups_2_outlined),
+            label: const Text('Select Employees'),
+          ),
+        ),
+        if (_selectedEmployeeIds.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedPrimaryEmployeeId != null &&
+                    _selectedEmployeeIds.contains(_selectedPrimaryEmployeeId)
+                ? _selectedPrimaryEmployeeId
+                : _selectedEmployeeIds.first,
+            dropdownColor: const Color(0xFF1B1B2C),
+            style: const TextStyle(color: Colors.white),
+            items: _employees
+                .where((e) => _selectedEmployeeIds.contains(e.id))
+                .map(
+                  (employee) => DropdownMenuItem(
+                    value: employee.id,
+                    child: Text(employee.name),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) => setState(() => _selectedPrimaryEmployeeId = value),
+            decoration: _inputDecoration('Primary Employee (Tracking & Default)'),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _openEmployeeSelector() async {
+    final tempSelected = Set<String>.from(_selectedEmployeeIds);
+
+    final result = await showDialog<Set<String>>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF11111B),
+              title: const Text(
+                'Select Employees',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: _employees
+                        .map(
+                          (employee) => CheckboxListTile(
+                            value: tempSelected.contains(employee.id),
+                            activeColor: Colors.blue,
+                            title: Text(
+                              employee.name,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            subtitle: employee.jobRoleTitles.isNotEmpty
+                                ? Text(
+                                    employee.jobRoleTitles,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.6),
+                                    ),
+                                  )
+                                : null,
+                            onChanged: (checked) {
+                              setStateDialog(() {
+                                if (checked ?? false) {
+                                  tempSelected.add(employee.id);
+                                } else {
+                                  tempSelected.remove(employee.id);
+                                }
+                              });
+                            },
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ),
+              actions: [
+                DashButton(
+                  label: 'Cancel',
+                  onPressed: () => Navigator.of(context).pop(),
+                  variant: DashButtonVariant.text,
+                ),
+                DashButton(
+                  label: 'Apply',
+                  onPressed: () => Navigator.of(context).pop(tempSelected),
+                  variant: DashButtonVariant.primary,
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) return;
+    setState(() {
+      _selectedEmployeeIds
+        ..clear()
+        ..addAll(result);
+      if (_selectedEmployeeIds.isEmpty) {
+        _selectedPrimaryEmployeeId = null;
+      } else if (_selectedPrimaryEmployeeId == null ||
+          !_selectedEmployeeIds.contains(_selectedPrimaryEmployeeId)) {
+        _selectedPrimaryEmployeeId = _selectedEmployeeIds.first;
+      }
+    });
   }
 
   /// Normalizes phone number by adding +91 prefix if not present

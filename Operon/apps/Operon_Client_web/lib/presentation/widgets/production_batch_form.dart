@@ -593,16 +593,18 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                             onTap: _selectDate,
                                             borderRadius:
                                                 BorderRadius.circular(14),
-                                            child: DashFormField(
-                                              controller: _batchDateController,
-                                              label: 'Batch Date',
-                                              readOnly: true,
-                                              prefix: const Icon(
-                                                Icons.calendar_today,
-                                                color: AuthColors.textSub,
-                                              ),
-                                              style: const TextStyle(
-                                                color: AuthColors.textMain,
+                                            child: IgnorePointer(
+                                              child: DashFormField(
+                                                controller: _batchDateController,
+                                                label: 'Batch Date',
+                                                readOnly: true,
+                                                prefix: const Icon(
+                                                  Icons.calendar_today,
+                                                  color: AuthColors.textSub,
+                                                ),
+                                                style: const TextStyle(
+                                                  color: AuthColors.textMain,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -756,7 +758,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                     child: _SummaryTile(
                                                       label: 'Total Wages',
                                                       value:
-                                                          '₹${_totalWages!.toStringAsFixed(2)}',
+                                                          '₹${_totalWages!.toStringAsFixed(4)}',
                                                     ),
                                                   ),
                                                   const SizedBox(width: 12),
@@ -764,7 +766,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                     child: _SummaryTile(
                                                       label: 'Per Employee',
                                                       value:
-                                                          '₹${_wagePerEmployee!.toStringAsFixed(2)}',
+                                                          '₹${_wagePerEmployee!.toStringAsFixed(4)}',
                                                     ),
                                                   ),
                                                 ],
@@ -1164,7 +1166,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                         label: 'Total Wages',
                                         value: _totalWages == null
                                             ? '—'
-                                            : '₹${_totalWages!.toStringAsFixed(2)}',
+                                            : '₹${_totalWages!.toStringAsFixed(4)}',
                                         isEmphasis: true,
                                       ),
                                       const SizedBox(height: 8),
@@ -1172,7 +1174,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                         label: 'Per Employee',
                                         value: _wagePerEmployee == null
                                             ? '—'
-                                            : '₹${_wagePerEmployee!.toStringAsFixed(2)}',
+                                            : '₹${_wagePerEmployee!.toStringAsFixed(4)}',
                                       ),
                                       const Divider(height: 18),
                                       _SummaryRow(
@@ -1311,7 +1313,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Wages calculated: ₹${_totalWages!.toStringAsFixed(2)} total',
+                            'Wages calculated: ₹${_totalWages!.toStringAsFixed(4)} total',
                             style: TextStyle(
                               color: AuthColors.textMainWithOpacity(0.7),
                               fontSize: 13,

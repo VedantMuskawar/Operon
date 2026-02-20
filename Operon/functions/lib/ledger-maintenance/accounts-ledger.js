@@ -99,14 +99,33 @@ async function fetchTransactionsForAccounts(organizationId, financialYear, type,
     return snapshots;
 }
 exports.generateAccountsLedger = (0, https_1.onCall)(function_config_1.CALLABLE_OPTS, async (request) => {
-    const data = request.data;
+    var _a, _b, _c, _d;
+    let data;
     try {
+        data = request.data;
+        // Debug logging
+        console.log('=== generateAccountsLedger called ===');
+        console.log('Request data:', JSON.stringify(data, null, 2));
         const { organizationId, financialYear, accountsLedgerId, ledgerName, accounts, clearMissingMonths = true, } = data;
-        if (!organizationId || !financialYear || !accountsLedgerId) {
-            throw new Error('Missing required parameters: organizationId, financialYear, accountsLedgerId');
+        // Validate request data
+        if (!data || typeof data !== 'object') {
+            throw new https_1.HttpsError('invalid-argument', 'Request data is missing or invalid');
         }
-        if (!accounts || accounts.length < 2) {
-            throw new Error('At least two accounts are required to generate a combined ledger');
+        if (!organizationId || !financialYear || !accountsLedgerId) {
+            throw new https_1.HttpsError('invalid-argument', `Missing required parameters. Received: organizationId=${organizationId}, financialYear=${financialYear}, accountsLedgerId=${accountsLedgerId}`);
+        }
+        if (!accounts || !Array.isArray(accounts) || accounts.length < 2) {
+            throw new https_1.HttpsError('invalid-argument', `At least two accounts are required. Received: ${(_a = accounts === null || accounts === void 0 ? void 0 : accounts.length) !== null && _a !== void 0 ? _a : 0} account(s)`);
+        }
+        // Validate account structure
+        for (let i = 0; i < accounts.length; i++) {
+            const account = accounts[i];
+            if (!account.type || !account.id) {
+                throw new https_1.HttpsError('invalid-argument', `Invalid account at index ${i}: type=${account === null || account === void 0 ? void 0 : account.type}, id=${account === null || account === void 0 ? void 0 : account.id}`);
+            }
+            if (!['client', 'vendor', 'employee'].includes(account.type)) {
+                throw new https_1.HttpsError('invalid-argument', `Invalid account type at index ${i}: ${account.type}`);
+            }
         }
         (0, logger_1.logInfo)('AccountsLedger', 'generateAccountsLedger', 'Generating accounts ledger', {
             organizationId,
@@ -124,11 +143,20 @@ exports.generateAccountsLedger = (0, https_1.onCall)(function_config_1.CALLABLE_
                 accountsByType[account.type].push(account.id);
             }
         });
-        const snapshots = (await Promise.all([
-            fetchTransactionsForAccounts(organizationId, financialYear, 'client', accountsByType.client),
-            fetchTransactionsForAccounts(organizationId, financialYear, 'vendor', accountsByType.vendor),
-            fetchTransactionsForAccounts(organizationId, financialYear, 'employee', accountsByType.employee),
-        ])).flat();
+        let snapshots;
+        try {
+            snapshots = (await Promise.all([
+                fetchTransactionsForAccounts(organizationId, financialYear, 'client', accountsByType.client),
+                fetchTransactionsForAccounts(organizationId, financialYear, 'vendor', accountsByType.vendor),
+                fetchTransactionsForAccounts(organizationId, financialYear, 'employee', accountsByType.employee),
+            ])).flat();
+        }
+        catch (error) {
+            throw new https_1.HttpsError('internal', 'Failed to fetch transactions from Firestore', {
+                originalError: error instanceof Error ? error.message : String(error),
+                step: 'fetchTransactions'
+            });
+        }
         const transactionMap = new Map();
         snapshots.forEach((doc) => {
             const transactionId = doc.get('transactionId') || doc.id;
@@ -145,7 +173,16 @@ exports.generateAccountsLedger = (0, https_1.onCall)(function_config_1.CALLABLE_
         const ledgerId = `${accountsLedgerId}_${financialYear}`;
         const ledgerRef = db.collection(constants_1.ACCOUNTS_LEDGERS_COLLECTION).doc(ledgerId);
         const fyDates = (0, ledger_helpers_1.getFinancialYearDates)(financialYear);
-        const openingBalance = await getCombinedOpeningBalance(accounts, financialYear);
+        let openingBalance;
+        try {
+            openingBalance = await getCombinedOpeningBalance(accounts, financialYear);
+        }
+        catch (error) {
+            throw new https_1.HttpsError('internal', 'Failed to fetch opening balances', {
+                originalError: error instanceof Error ? error.message : String(error),
+                step: 'openingBalance'
+            });
+        }
         let currentBalance = openingBalance;
         const monthlyBuckets = new Map();
         const transactionIds = [];
@@ -268,7 +305,16 @@ exports.generateAccountsLedger = (0, https_1.onCall)(function_config_1.CALLABLE_
             firstTransactionDate: firstTransactionDate !== null && firstTransactionDate !== void 0 ? firstTransactionDate : null,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
-        await batch.commit();
+        try {
+            await batch.commit();
+        }
+        catch (error) {
+            throw new https_1.HttpsError('internal', 'Failed to save ledger to Firestore', {
+                originalError: error instanceof Error ? error.message : String(error),
+                step: 'batchCommit',
+                ledgerId
+            });
+        }
         (0, logger_1.logInfo)('AccountsLedger', 'generateAccountsLedger', 'Accounts ledger generated', {
             ledgerId,
             transactionCount: transactionIds.length,
@@ -280,8 +326,26 @@ exports.generateAccountsLedger = (0, https_1.onCall)(function_config_1.CALLABLE_
         };
     }
     catch (error) {
-        (0, logger_1.logError)('AccountsLedger', 'generateAccountsLedger', 'Failed to generate accounts ledger', error instanceof Error ? error : String(error), data);
-        throw error;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        console.error('=== generateAccountsLedger Error ===');
+        console.error('Error type:', (_b = error === null || error === void 0 ? void 0 : error.constructor) === null || _b === void 0 ? void 0 : _b.name);
+        console.error('Error message:', errorMessage);
+        console.error('Error stack:', errorStack);
+        console.error('Is HttpsError:', error instanceof https_1.HttpsError);
+        console.error('====================================');
+        (0, logger_1.logError)('AccountsLedger', 'generateAccountsLedger', 'Failed to generate accounts ledger', error instanceof Error ? error : String(error), Object.assign(Object.assign({}, data), { errorMessage,
+            errorStack }));
+        // If already an HttpsError, rethrow it
+        if (error instanceof https_1.HttpsError) {
+            throw error;
+        }
+        // Convert other errors to user-friendly HttpsError with detailed info
+        throw new https_1.HttpsError('internal', errorMessage, {
+            originalError: errorMessage,
+            errorType: (_d = (_c = error === null || error === void 0 ? void 0 : error.constructor) === null || _c === void 0 ? void 0 : _c.name) !== null && _d !== void 0 ? _d : 'Unknown',
+            stack: errorStack === null || errorStack === void 0 ? void 0 : errorStack.split('\n').slice(0, 3).join('\n'), // First 3 lines of stack
+        });
     }
 });
 //# sourceMappingURL=accounts-ledger.js.map

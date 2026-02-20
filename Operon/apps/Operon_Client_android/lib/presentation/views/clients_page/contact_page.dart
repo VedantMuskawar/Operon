@@ -17,7 +17,6 @@ import 'package:dash_mobile/presentation/widgets/loading/contact_skeleton.dart';
 import 'package:dash_mobile/presentation/widgets/alphabet_strip.dart' show groupContactsByLetter, getAvailableLetters;
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:core_bloc/core_bloc.dart' as core_bloc;
 
@@ -389,13 +388,18 @@ class _ContactPageState extends State<_ContactPageContent> {
       }
     }
 
+    // Check if client exists
     final existingClient = await _findExistingClient(contactToUse);
+    
     if (existingClient != null) {
+      // Client exists - forward to create order page with existing client
       if (!mounted) return;
-      context.pushNamed('client-detail', extra: existingClient);
+      cubit.addRecentContact(contactToUse);
+      Navigator.of(context).pop(existingClient);
       return;
     }
 
+    // Client doesn't exist - show action sheet
     final action = await _showContactActionSheet();
     if (action == null) return;
 

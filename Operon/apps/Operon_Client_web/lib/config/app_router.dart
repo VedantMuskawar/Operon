@@ -22,7 +22,9 @@ import 'package:dash_web/presentation/views/raw_materials_page.dart'
     deferred as raw_materials;
 import 'package:dash_web/presentation/views/roles_page.dart';
 import 'package:dash_web/presentation/views/users_view.dart';
-import 'package:dash_web/presentation/views/employees_view.dart';
+// Deferred import for employees page (large data sets)
+import 'package:dash_web/presentation/views/employees_view.dart'
+    deferred as employees_view;
 import 'package:dash_web/presentation/views/organization_locations_page.dart';
 import 'package:dash_web/presentation/views/geofence_editor_page.dart';
 import 'package:dash_web/presentation/views/notifications_page.dart';
@@ -34,20 +36,30 @@ import 'package:dash_web/presentation/views/zones_view.dart';
 import 'package:dash_web/presentation/views/create_order_page.dart';
 import 'package:dash_web/data/repositories/delivery_zones_repository.dart';
 import 'package:dash_web/presentation/blocs/delivery_zones/delivery_zones_cubit.dart';
-import 'package:dash_web/presentation/views/clients_view.dart';
+// Deferred import for clients page (1500+ lines, complex filtering)
+import 'package:dash_web/presentation/views/clients_view.dart'
+    deferred as clients_view;
 import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_web/presentation/views/client_detail_page.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
-import 'package:dash_web/presentation/views/delivery_memos_view.dart';
+// Deferred import for delivery memos (large lists, maps)
+import 'package:dash_web/presentation/views/delivery_memos_view.dart'
+    deferred as delivery_memos_view;
 import 'package:dash_web/presentation/views/record_payment_page.dart';
-import 'package:dash_web/presentation/views/fuel_ledger_page.dart';
-import 'package:dash_web/presentation/views/employee_wages_page.dart';
+// Deferred import for fuel ledger (analytics, charts)
+import 'package:dash_web/presentation/views/fuel_ledger_page.dart'
+    deferred as fuel_ledger;
+// Deferred imports for wage/salary pages (large data processing)
+import 'package:dash_web/presentation/views/employee_wages_page.dart'
+    deferred as employee_wages_view;
 import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_cubit.dart';
-import 'package:dash_web/presentation/views/monthly_salary_bonus_page.dart';
-import 'package:dash_web/presentation/views/attendance_page.dart';
+import 'package:dash_web/presentation/views/monthly_salary_bonus_page.dart'
+    deferred as salary_bonus_view;
+import 'package:dash_web/presentation/views/attendance_page.dart'
+    deferred as attendance_view;
 import 'package:dash_web/presentation/views/unified_financial_transactions_view.dart'
     deferred as financial_transactions;
 import 'package:dash_web/presentation/blocs/financial_transactions/unified_financial_transactions_cubit.dart'
@@ -652,10 +664,11 @@ GoRouter buildRouter() {
               child: const OrganizationSelectionPage(),
             );
           }
-          return _buildTransitionPage(
+          return _buildDeferredPage(
             key: state.pageKey,
             routePath: state.uri.path,
-            child: const DeliveryMemosView(),
+            loadLibrary: delivery_memos_view.loadLibrary,
+            builder: () => delivery_memos_view.DeliveryMemosView(),
           );
         },
       ),
@@ -691,10 +704,11 @@ GoRouter buildRouter() {
               child: const OrganizationSelectionPage(),
             );
           }
-          return _buildTransitionPage(
+          return _buildDeferredPage(
             key: state.pageKey,
             routePath: state.uri.path,
-            child: const FuelLedgerPage(),
+            loadLibrary: fuel_ledger.loadLibrary,
+            builder: () => fuel_ledger.FuelLedgerPage(),
           );
         },
       ),
@@ -725,10 +739,11 @@ GoRouter buildRouter() {
               child: const OrganizationSelectionPage(),
             );
           }
-          return _buildTransitionPage(
+          return _buildDeferredPage(
             key: state.pageKey,
             routePath: state.uri.path,
-            child: const MonthlySalaryBonusPage(),
+            loadLibrary: salary_bonus_view.loadLibrary,
+            builder: () => salary_bonus_view.MonthlySalaryBonusPage(),
           );
         },
       ),
@@ -764,7 +779,28 @@ GoRouter buildRouter() {
                 repository: context.read<EmployeeWagesRepository>(),
                 organizationId: organization.id,
               ),
-              child: const EmployeeWagesPage(),
+              // ⚡ Deferred loading for employee wages page
+              child: FutureBuilder<void>(
+                future: employee_wages_view.loadLibrary(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(strokeWidth: 2.0),
+                            SizedBox(height: 16),
+                            Text('Loading...'),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  return employee_wages_view.EmployeeWagesPage();
+                },
+              ),
             ),
           );
         },
@@ -806,7 +842,28 @@ GoRouter buildRouter() {
           return _buildTransitionPage(
             key: state.pageKey,
             routePath: state.uri.path,
-            child: const AttendancePage(),
+            // ⚡ Deferred loading for attendance page
+            child: FutureBuilder<void>(
+              future: attendance_view.loadLibrary(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(strokeWidth: 2.0),
+                          SizedBox(height: 16),
+                          Text('Loading...'),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return attendance_view.AttendancePage();
+              },
+            ),
           );
         },
       ),
@@ -1176,7 +1233,28 @@ class _EmployeesPageWrapper extends StatelessWidget {
         panelTitle: 'Employees',
         currentIndex: -1,
         onNavTap: (index) => context.go('/home?section=$index'),
-        child: const EmployeesPageContent(),
+        // ⚡ Deferred loading for employees page
+        child: FutureBuilder<void>(
+          future: employees_view.loadLibrary(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(strokeWidth: 2.0),
+                      SizedBox(height: 16),
+                      Text('Loading...'),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return employees_view.EmployeesPageContent();
+          },
+        ),
       ),
     );
   }
@@ -1270,7 +1348,28 @@ class _ClientsPageWrapper extends StatelessWidget {
         panelTitle: 'Clients',
         currentIndex: -1,
         onNavTap: (index) => context.go('/home?section=$index'),
-        child: const ClientsPageContent(),
+        // ⚡ Deferred loading for clients page (1500+ lines)
+        child: FutureBuilder<void>(
+          future: clients_view.loadLibrary(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(strokeWidth: 2.0),
+                      SizedBox(height: 16),
+                      Text('Loading...'),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return clients_view.ClientsPageContent();
+          },
+        ),
       ),
     );
   }
@@ -1404,5 +1503,45 @@ CustomTransitionPage<dynamic> _buildTransitionPage({
         );
       }
     },
+  );
+}
+
+/// ⚡ Helper for deferred page loading with loading indicator
+CustomTransitionPage<dynamic> _buildDeferredPage({
+  required LocalKey key,
+  required Future<void> Function() loadLibrary,
+  required Widget Function() builder,
+  String? routePath,
+}) {
+  return _buildTransitionPage(
+    key: key,
+    routePath: routePath,
+    child: FutureBuilder<void>(
+      future: loadLibrary(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          // Show loading indicator while code chunk downloads
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(strokeWidth: 2.0),
+                  SizedBox(height: 16),
+                  Text('Loading...'),
+                ],
+              ),
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error loading page: ${snapshot.error}'),
+          );
+        }
+        return builder();
+      },
+    ),
   );
 }

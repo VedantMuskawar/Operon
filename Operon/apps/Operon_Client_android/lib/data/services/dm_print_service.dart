@@ -575,7 +575,7 @@ class DmPrintService {
   }
 
   /// Generate HTML string for DM (same as Web - unified PrintDMPage system)
-  /// Respects custom template preference (lakshmee_v1) if set
+  /// Respects custom template preference (LIT1/LIT2) if set
   String generateDmHtmlForPrint({
     required Map<String, dynamic> dmData,
     required DmSettings dmSettings,
@@ -584,14 +584,20 @@ class DmPrintService {
     Uint8List? qrCodeBytes,
   }) {
     // Check if custom template (lakshmee) is preferred
-    if (dmSettings.templateType == DmTemplateType.custom &&
-        dmSettings.customTemplateId == 'lakshmee_v1') {
+    final customTemplateId = dmSettings.customTemplateId?.trim();
+    final isLakshmeeTemplate = dmSettings.templateType == DmTemplateType.custom &&
+      (customTemplateId == 'LIT1' ||
+        customTemplateId == 'LIT2' ||
+        customTemplateId == 'lakshmee_v1' ||
+        customTemplateId == 'lakshmee_v2');
+    if (isLakshmeeTemplate) {
       return _generateLakshmeeHtml(
         dmData: dmData,
         dmSettings: dmSettings,
         paymentAccount: paymentAccount,
         logoBytes: logoBytes,
         qrCodeBytes: qrCodeBytes,
+        hidePriceFields: customTemplateId == 'LIT2' || customTemplateId == 'lakshmee_v2',
       );
     }
 
@@ -959,6 +965,7 @@ class DmPrintService {
     Map<String, dynamic>? paymentAccount,
     Uint8List? logoBytes,
     Uint8List? qrCodeBytes,
+    bool hidePriceFields = false,
   }) {
     // Extract data from dmData
     final dmNumber = dmData['dmNumber'] as int? ?? 0;
@@ -1644,8 +1651,8 @@ class DmPrintService {
               <div class="table">
                 <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
                 <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
-                <div class="table-row"><span>💰 Unit Price</span><span>${_formatCurrency(productUnitPrice)}</span></div>
-                <div class="table-row-total"><span>🧾 Total</span><span>${_formatCurrency(total)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>${hidePriceFields ? '' : _formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row-total"><span>🧾 Total</span><span>${hidePriceFields ? '' : _formatCurrency(total)}</span></div>
                 <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
               </div>
             </div>
@@ -1709,8 +1716,8 @@ class DmPrintService {
               <div class="table">
                 <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
                 <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
-                <div class="table-row"><span>💰 Unit Price</span><span>${_formatCurrency(productUnitPrice)}</span></div>
-                <div class="table-row-total"><span>🧾 Total</span><span>${_formatCurrency(total)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>${hidePriceFields ? '' : _formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row-total"><span>🧾 Total</span><span>${hidePriceFields ? '' : _formatCurrency(total)}</span></div>
                 <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
               </div>
             </div>
@@ -1811,8 +1818,12 @@ class DmPrintService {
     try {
       // Get temporary directory
       final tempDir = await getTemporaryDirectory();
-      final isLakshmee = dmSettings.templateType == DmTemplateType.custom &&
-          dmSettings.customTemplateId == 'lakshmee_v1';
+        final customTemplateId = dmSettings.customTemplateId?.trim();
+          final isLakshmee = dmSettings.templateType == DmTemplateType.custom &&
+            (customTemplateId == 'LIT1' ||
+              customTemplateId == 'LIT2' ||
+              customTemplateId == 'lakshmee_v1' ||
+              customTemplateId == 'lakshmee_v2');
       final orientation = isLakshmee
           ? PrintOrientation.Portrait
           : (dmSettings.printOrientation == DmPrintOrientation.landscape
