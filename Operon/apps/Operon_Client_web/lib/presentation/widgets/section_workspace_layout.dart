@@ -256,7 +256,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                   final info = snapshot.data;
                   const webVersion = String.fromEnvironment(
                     'OPERON_WEB_VERSION',
-                    defaultValue: 'v1.1.0(2)',
+                    defaultValue: 'v1.1.1(3)',
                   );
                   final versionLabel = kIsWeb
                       ? webVersion

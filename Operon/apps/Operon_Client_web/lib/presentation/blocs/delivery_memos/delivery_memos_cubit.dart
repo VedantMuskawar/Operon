@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class DeliveryMemosState extends BaseState {
+  static const Object _unset = Object();
+
   const DeliveryMemosState({
     super.status = ViewStatus.initial,
     this.deliveryMemos = const [],
@@ -12,6 +15,10 @@ class DeliveryMemosState extends BaseState {
     this.statusFilter, // 'active' or 'cancelled'
     this.startDate,
     this.endDate,
+    this.currentPage = 1,
+    this.pageSize = 20,
+    this.hasPreviousPage = false,
+    this.hasNextPage = false,
     this.message,
   }) : super(message: message);
 
@@ -20,6 +27,10 @@ class DeliveryMemosState extends BaseState {
   final String? statusFilter;
   final DateTime? startDate;
   final DateTime? endDate;
+  final int currentPage;
+  final int pageSize;
+  final bool hasPreviousPage;
+  final bool hasNextPage;
   @override
   final String? message;
   static final Map<String, String> _searchIndexCache = {};
@@ -84,19 +95,33 @@ class DeliveryMemosState extends BaseState {
     ViewStatus? status,
     List<Map<String, dynamic>>? deliveryMemos,
     String? searchQuery,
-    String? statusFilter,
-    DateTime? startDate,
-    DateTime? endDate,
-    String? message,
+    Object? statusFilter = _unset,
+    Object? startDate = _unset,
+    Object? endDate = _unset,
+    int? currentPage,
+    int? pageSize,
+    bool? hasPreviousPage,
+    bool? hasNextPage,
+    Object? message = _unset,
   }) {
     return DeliveryMemosState(
       status: status ?? this.status,
       deliveryMemos: deliveryMemos ?? this.deliveryMemos,
       searchQuery: searchQuery ?? this.searchQuery,
-      statusFilter: statusFilter ?? this.statusFilter,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
-      message: message ?? this.message,
+      statusFilter: identical(statusFilter, _unset)
+          ? this.statusFilter
+          : statusFilter as String?,
+      startDate: identical(startDate, _unset)
+          ? this.startDate
+          : startDate as DateTime?,
+      endDate: identical(endDate, _unset)
+          ? this.endDate
+          : endDate as DateTime?,
+      currentPage: currentPage ?? this.currentPage,
+      pageSize: pageSize ?? this.pageSize,
+      hasPreviousPage: hasPreviousPage ?? this.hasPreviousPage,
+      hasNextPage: hasNextPage ?? this.hasNextPage,
+      message: identical(message, _unset) ? this.message : message as String?,
     );
   }
 }
@@ -112,25 +137,31 @@ class DeliveryMemosCubit extends Cubit<DeliveryMemosState> {
   final DeliveryMemoRepository _repository;
   final String _organizationId;
   StreamSubscription<List<Map<String, dynamic>>>? _deliveryMemosSubscription;
+  final List<DocumentSnapshot<Map<String, dynamic>>?> _pageCursors = [null];
+  int _currentPageIndex = 0;
 
-  static const int _defaultLimit = 10;
+  static const int _defaultLimit = 20;
   static const int _searchLimit = 200;
 
   String get organizationId => _organizationId;
 
   void search(String query) {
     emit(state.copyWith(searchQuery: query));
-    // Reload with appropriate limit when search changes
+    if (query.trim().isEmpty) {
+      _resetPagination();
+    }
     _subscribeToDeliveryMemos();
   }
 
   void setStatusFilter(String? status) {
     emit(state.copyWith(statusFilter: status));
+    _resetPagination();
     _subscribeToDeliveryMemos();
   }
 
   void setDateRange(DateTime? start, DateTime? end) {
     emit(state.copyWith(startDate: start, endDate: end));
+    _resetPagination();
     _subscribeToDeliveryMemos();
   }
 
@@ -141,7 +172,15 @@ class DeliveryMemosCubit extends Cubit<DeliveryMemosState> {
       endDate: null,
       searchQuery: '',
     ));
+    _resetPagination();
     _subscribeToDeliveryMemos();
+  }
+
+  void _resetPagination() {
+    _pageCursors
+      ..clear()
+      ..add(null);
+    _currentPageIndex = 0;
   }
 
   void _subscribeToDeliveryMemos() {
@@ -162,36 +201,99 @@ class DeliveryMemosCubit extends Cubit<DeliveryMemosState> {
       return;
     }
 
-    // When searching, use a capped limit to avoid full collection reads
-    final limit = normalizedQuery.isNotEmpty ? _searchLimit : _defaultLimit;
-    developer.log('Limit: $limit', name: 'DeliveryMemosCubit');
+    // Keep broad search on stream with capped results.
+    if (normalizedQuery.isNotEmpty) {
+      final limit = _searchLimit;
+      developer.log('Search mode limit: $limit', name: 'DeliveryMemosCubit');
 
-    _deliveryMemosSubscription = _repository
-        .watchDeliveryMemos(
-          organizationId: _organizationId,
-          status: state.statusFilter,
-          startDate: state.startDate,
-          endDate: state.endDate,
-          limit: limit, // Show top 10 when no search, all DMs when searching
-        )
-        .listen(
-      (deliveryMemos) {
-        developer.log('Received ${deliveryMemos.length} delivery memos', name: 'DeliveryMemosCubit');
-        emit(state.copyWith(
-          status: ViewStatus.success,
-          deliveryMemos: deliveryMemos,
-        ));
-      },
-      onError: (error, stackTrace) {
-        developer.log('Error loading delivery memos: $error', name: 'DeliveryMemosCubit', error: error, stackTrace: stackTrace);
-        emit(state.copyWith(
-          status: ViewStatus.failure,
-          message: 'Unable to load delivery memos: ${error.toString()}',
-        ));
-      },
-    );
+      _deliveryMemosSubscription = _repository
+          .watchDeliveryMemos(
+            organizationId: _organizationId,
+            status: state.statusFilter,
+            startDate: state.startDate,
+            endDate: state.endDate,
+            limit: limit,
+          )
+          .listen(
+        (deliveryMemos) {
+          emit(state.copyWith(
+            status: ViewStatus.success,
+            deliveryMemos: deliveryMemos,
+            currentPage: 1,
+            hasPreviousPage: false,
+            hasNextPage: false,
+            pageSize: _defaultLimit,
+            message: null,
+          ));
+        },
+        onError: (error, stackTrace) {
+          developer.log('Error loading delivery memos: $error', name: 'DeliveryMemosCubit', error: error, stackTrace: stackTrace);
+          emit(state.copyWith(
+            status: ViewStatus.failure,
+            message: 'Unable to load delivery memos: ${error.toString()}',
+          ));
+        },
+      );
 
-    emit(state.copyWith(status: ViewStatus.loading));
+      emit(state.copyWith(status: ViewStatus.loading));
+      return;
+    }
+
+    // Non-search mode: true cursor-based pagination to navigate old DMs.
+    _loadPage(_currentPageIndex);
+  }
+
+  Future<void> nextPage() async {
+    if (!state.hasNextPage) return;
+    await _loadPage(_currentPageIndex + 1);
+  }
+
+  Future<void> previousPage() async {
+    if (_currentPageIndex <= 0) return;
+    await _loadPage(_currentPageIndex - 1);
+  }
+
+  Future<void> _loadPage(int targetPageIndex) async {
+    try {
+      emit(state.copyWith(status: ViewStatus.loading));
+
+      final cursor = targetPageIndex < _pageCursors.length
+          ? _pageCursors[targetPageIndex]
+          : null;
+
+      final page = await _repository.fetchDeliveryMemosPage(
+        organizationId: _organizationId,
+        status: state.statusFilter,
+        startDate: state.startDate,
+        endDate: state.endDate,
+        limit: _defaultLimit,
+        startAfterDocument: cursor,
+      );
+
+      if (_pageCursors.length <= targetPageIndex + 1) {
+        _pageCursors.add(page.lastDocument);
+      } else {
+        _pageCursors[targetPageIndex + 1] = page.lastDocument;
+      }
+
+      _currentPageIndex = targetPageIndex;
+
+      emit(state.copyWith(
+        status: ViewStatus.success,
+        deliveryMemos: page.memos,
+        currentPage: _currentPageIndex + 1,
+        pageSize: _defaultLimit,
+        hasPreviousPage: _currentPageIndex > 0,
+        hasNextPage: page.hasMore,
+        message: null,
+      ));
+    } catch (error, stackTrace) {
+      developer.log('Error loading delivery memo page: $error', name: 'DeliveryMemosCubit', error: error, stackTrace: stackTrace);
+      emit(state.copyWith(
+        status: ViewStatus.failure,
+        message: 'Unable to load delivery memos: ${error.toString()}',
+      ));
+    }
   }
 
   int? _parseDmNumber(String query) {
@@ -211,6 +313,10 @@ class DeliveryMemosCubit extends Cubit<DeliveryMemosState> {
       emit(state.copyWith(
         status: ViewStatus.success,
         deliveryMemos: memo != null ? [memo] : const [],
+        currentPage: 1,
+        pageSize: _defaultLimit,
+        hasPreviousPage: false,
+        hasNextPage: false,
         message: null,
       ));
     } catch (error) {

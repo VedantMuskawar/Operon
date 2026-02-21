@@ -76,7 +76,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
     // Apply type filter
     if (_selectedTypeFilter != null) {
       filtered = filtered
-          .where((v) => v.vendorType == _selectedTypeFilter)
+          .where((v) => v.hasVendorType(_selectedTypeFilter!))
           .toList();
     }
 
@@ -103,7 +103,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
         sortedList.sort((a, b) => a.currentBalance.compareTo(b.currentBalance));
         break;
       case _VendorSortOption.typeAsc:
-        sortedList.sort((a, b) => a.vendorType.name.compareTo(b.vendorType.name));
+        sortedList.sort((a, b) => a.primaryVendorType.name.compareTo(b.primaryVendorType.name));
         break;
     }
 
@@ -830,6 +830,14 @@ class _VendorListView extends StatelessWidget {
         .join(' ');
   }
 
+  String _formatVendorTypes(Vendor vendor) {
+    final formatted = vendor.effectiveVendorTypes.map(_formatVendorType).toList();
+    if (formatted.length <= 2) {
+      return formatted.join(', ');
+    }
+    return '${formatted.take(2).join(', ')} +${formatted.length - 2}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimationLimiter(
@@ -840,11 +848,11 @@ class _VendorListView extends StatelessWidget {
         itemCount: vendors.length,
         itemBuilder: (context, index) {
           final vendor = vendors[index];
-          final typeColor = _getVendorTypeColor(vendor.vendorType);
+          final typeColor = _getVendorTypeColor(vendor.primaryVendorType);
           final balanceDifference = vendor.currentBalance - vendor.openingBalance;
           final isPositive = balanceDifference >= 0;
           final subtitleParts = <String>[];
-          subtitleParts.add(_formatVendorType(vendor.vendorType));
+          subtitleParts.add(_formatVendorTypes(vendor));
           subtitleParts.add(vendor.phoneNumber);
           if (vendor.vendorCode.isNotEmpty) subtitleParts.add('Code: ${vendor.vendorCode}');
           final subtitle = subtitleParts.join(' • ');
@@ -1050,7 +1058,7 @@ class _VendorDialogState extends State<_VendorDialog> {
   late final TextEditingController _gstController;
   late final TextEditingController _openingBalanceController;
   
-  VendorType _selectedType = VendorType.other;
+  Set<VendorType> _selectedTypes = {VendorType.other};
   VendorStatus _selectedStatus = VendorStatus.active;
   bool _isEditing = false;
   
@@ -1070,16 +1078,18 @@ class _VendorDialogState extends State<_VendorDialog> {
     _openingBalanceController = TextEditingController(
       text: vendor != null ? vendor.openingBalance.toStringAsFixed(2) : '0.00',
     );
-    _selectedType = vendor?.vendorType ?? VendorType.other;
+    _selectedTypes = vendor != null
+        ? vendor.effectiveVendorTypes.toSet()
+        : <VendorType>{VendorType.other};
     _selectedStatus = vendor?.status ?? VendorStatus.active;
     
-    // Load assigned materials if editing and vendor type is rawMaterial
-    if (vendor != null && vendor.vendorType == VendorType.rawMaterial) {
+    // Load assigned materials if editing and vendor supports raw materials
+    if (vendor != null && vendor.hasVendorType(VendorType.rawMaterial)) {
       _selectedMaterialIds = Set.from(vendor.rawMaterialDetails?.assignedMaterialIds ?? []);
     }
     
-    // Load raw materials if type is rawMaterial
-    if (_selectedType == VendorType.rawMaterial) {
+    // Load raw materials if selected types include raw materials
+    if (_selectedTypes.contains(VendorType.rawMaterial)) {
       _loadRawMaterials();
     }
   }
@@ -1242,31 +1252,51 @@ class _VendorDialogState extends State<_VendorDialog> {
                           : null,
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<VendorType>(
-                        initialValue: _selectedType,
-                  dropdownColor: const Color(0xFF1B1B2C),
-                  style: const TextStyle(color: Colors.white),
-                        decoration: _inputDecoration('Vendor Type', Icons.category_outlined),
-                        items: VendorType.values.map((type) {
-                          return DropdownMenuItem(
-                          value: type,
-                          child: Text(_formatVendorType(type)),
-                          );
-                        }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _selectedType = value;
-                        // Load raw materials if switching to rawMaterial type
-                        if (value == VendorType.rawMaterial && _allRawMaterials.isEmpty) {
-                          _loadRawMaterials();
-                        }
-                      });
-                    }
-                  },
+                InputDecorator(
+                  decoration: _inputDecoration('Vendor Types', Icons.category_outlined),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: VendorType.values.map((type) {
+                      final isSelected = _selectedTypes.contains(type);
+                      return FilterChip(
+                        label: Text(_formatVendorType(type)),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedTypes.add(type);
+                            } else {
+                              _selectedTypes.remove(type);
+                            }
+
+                            if (_selectedTypes.isEmpty) {
+                              _selectedTypes = {VendorType.other};
+                            }
+
+                            if (_selectedTypes.contains(VendorType.rawMaterial) &&
+                                _allRawMaterials.isEmpty) {
+                              _loadRawMaterials();
+                            }
+                          });
+                        },
+                        selectedColor: const Color(0xFF6F4BFF).withValues(alpha: 0.3),
+                        checkmarkColor: const Color(0xFF6F4BFF),
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                        side: BorderSide(
+                          color: isSelected
+                              ? const Color(0xFF6F4BFF)
+                              : Colors.white.withValues(alpha: 0.2),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
                 // Raw Materials Assignment Section
-                if (_selectedType == VendorType.rawMaterial) ...[
+                if (_selectedTypes.contains(VendorType.rawMaterial)) ...[
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -1429,9 +1459,14 @@ class _VendorDialogState extends State<_VendorDialog> {
                       // Get organizationId from the vendor if editing, or from cubit
                       final orgId = widget.vendor?.organizationId ?? widget.vendorsCubit.organizationId;
 
-                        // Build rawMaterialDetails if vendor type is rawMaterial
+                        final selectedTypes = _selectedTypes.toList(growable: false);
+                        final primaryType = selectedTypes.isNotEmpty
+                            ? selectedTypes.first
+                            : VendorType.other;
+
+                        // Build rawMaterialDetails if vendor supports raw materials
                         RawMaterialDetails? rawMaterialDetails;
-                        if (_selectedType == VendorType.rawMaterial) {
+                        if (selectedTypes.contains(VendorType.rawMaterial)) {
                           rawMaterialDetails = RawMaterialDetails(
                             materialCategories: widget.vendor?.rawMaterialDetails?.materialCategories ?? [],
                             unitOfMeasurement: widget.vendor?.rawMaterialDetails?.unitOfMeasurement,
@@ -1454,7 +1489,8 @@ class _VendorDialogState extends State<_VendorDialog> {
                               double.parse(_openingBalanceController.text.trim()),
                           currentBalance: widget.vendor?.currentBalance ??
                               double.parse(_openingBalanceController.text.trim()),
-                        vendorType: _selectedType,
+                          vendorType: primaryType,
+                          vendorTypes: selectedTypes,
                 status: _selectedStatus,
                         organizationId: orgId,
                         gstNumber: _gstController.text.trim().isEmpty 

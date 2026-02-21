@@ -40,6 +40,7 @@ class Vendor {
     required this.openingBalance,
     required this.currentBalance,
     required this.vendorType,
+    this.vendorTypes = const [],
     required this.status,
     required this.organizationId,
     this.vendorSubType,
@@ -85,6 +86,7 @@ class Vendor {
   final double openingBalance;
   final double currentBalance;
   final VendorType vendorType;
+  final List<VendorType> vendorTypes;
   final VendorStatus status;
   final String organizationId;
   final String? vendorSubType;
@@ -134,6 +136,7 @@ class Vendor {
       'openingBalance': openingBalance,
       'currentBalance': currentBalance,
       'vendorType': vendorType.name,
+      'vendorTypes': effectiveVendorTypes.map((type) => type.name).toList(),
       'status': status.name,
       'organizationId': organizationId,
       if (vendorSubType != null) 'vendorSubType': vendorSubType,
@@ -170,6 +173,25 @@ class Vendor {
   }
 
   factory Vendor.fromJson(Map<String, dynamic> json, String docId) {
+    final parsedVendorTypes = (json['vendorTypes'] as List<dynamic>?)
+            ?.map((typeName) => VendorType.values.firstWhere(
+                  (type) => type.name == typeName,
+                  orElse: () => VendorType.other,
+                ))
+            .toList() ??
+        [];
+
+    final parsedLegacyType = VendorType.values.firstWhere(
+      (type) => type.name == json['vendorType'],
+      orElse: () => parsedVendorTypes.isNotEmpty
+          ? parsedVendorTypes.first
+          : VendorType.other,
+    );
+
+    final normalizedVendorTypes = parsedVendorTypes.isNotEmpty
+        ? parsedVendorTypes
+        : <VendorType>[parsedLegacyType];
+
     return Vendor(
       id: json['vendorId'] as String? ?? docId,
       vendorCode: json['vendorCode'] as String? ?? '',
@@ -185,10 +207,8 @@ class Vendor {
           .toList() ?? [],
       openingBalance: (json['openingBalance'] as num?)?.toDouble() ?? 0,
       currentBalance: (json['currentBalance'] as num?)?.toDouble() ?? 0,
-      vendorType: VendorType.values.firstWhere(
-        (type) => type.name == json['vendorType'],
-        orElse: () => VendorType.other,
-      ),
+      vendorType: parsedLegacyType,
+      vendorTypes: normalizedVendorTypes,
       status: VendorStatus.values.firstWhere(
         (status) => status.name == json['status'],
         orElse: () => VendorStatus.active,
@@ -273,6 +293,7 @@ class Vendor {
     double? openingBalance,
     double? currentBalance,
     VendorType? vendorType,
+    List<VendorType>? vendorTypes,
     VendorStatus? status,
     String? organizationId,
     String? vendorSubType,
@@ -299,6 +320,7 @@ class Vendor {
       openingBalance: openingBalance ?? this.openingBalance,
       currentBalance: currentBalance ?? this.currentBalance,
       vendorType: vendorType ?? this.vendorType,
+      vendorTypes: vendorTypes ?? this.vendorTypes,
       status: status ?? this.status,
       organizationId: organizationId ?? this.organizationId,
       vendorSubType: vendorSubType ?? this.vendorSubType,
@@ -332,6 +354,24 @@ class Vendor {
       updatedAt: updatedAt ?? this.updatedAt,
       lastTransactionDate: lastTransactionDate,
     );
+  }
+
+  /// Returns the normalized set of vendor types this vendor supports.
+  ///
+  /// Falls back to legacy [vendorType] when [vendorTypes] is missing.
+  List<VendorType> get effectiveVendorTypes {
+    if (vendorTypes.isNotEmpty) {
+      return vendorTypes.toSet().toList(growable: false);
+    }
+    return <VendorType>[vendorType];
+  }
+
+  /// Primary vendor type used for legacy UI and sorting.
+  VendorType get primaryVendorType =>
+      effectiveVendorTypes.isNotEmpty ? effectiveVendorTypes.first : vendorType;
+
+  bool hasVendorType(VendorType type) {
+    return effectiveVendorTypes.contains(type);
   }
 }
 

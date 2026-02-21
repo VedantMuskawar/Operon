@@ -70,7 +70,8 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
       _printOrientation = settings.printOrientation;
       _paymentDisplay = settings.paymentDisplay;
       _templateType = settings.templateType;
-      _selectedCustomTemplateId = _normalizeTemplateId(settings.customTemplateId);
+      _selectedCustomTemplateId =
+          _normalizeTemplateId(settings.customTemplateId);
       _settingsLoaded = true;
     });
   }
@@ -149,7 +150,8 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: const Text('Remove Logo', style: TextStyle(color: AuthColors.textMain)),
+        title: const Text('Remove Logo',
+            style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to remove the logo?',
           style: TextStyle(color: AuthColors.textSub),
@@ -157,11 +159,13 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+            child: const Text('Cancel',
+                style: TextStyle(color: AuthColors.textSub)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Remove', style: TextStyle(color: AuthColors.error)),
+            child:
+                const Text('Remove', style: TextStyle(color: AuthColors.error)),
           ),
         ],
       ),
@@ -229,7 +233,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
   Widget build(BuildContext context) {
     final cubit = context.watch<DmSettingsCubit>();
     final state = cubit.state;
-    
+
     // Load settings when they become available
     if (state.settings != null && !_settingsLoaded) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -238,8 +242,9 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
         }
       });
     }
-    
-    final isLoading = state.status == ViewStatus.loading && state.settings == null;
+
+    final isLoading =
+        state.status == ViewStatus.loading && state.settings == null;
 
     return BlocListener<DmSettingsCubit, DmSettingsState>(
       listener: (context, state) {
@@ -261,7 +266,8 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                 child: isLoading
                     ? const Center(
                         child: Padding(
-                          padding: EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
+                          padding:
+                              EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
                           child: CircularProgressIndicator(),
                         ),
                       )
@@ -274,12 +280,15 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                             children: [
                               // Info Box
                               Container(
-                                padding: const EdgeInsets.all(AppSpacing.paddingLG),
+                                padding:
+                                    const EdgeInsets.all(AppSpacing.paddingLG),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+                                  borderRadius: BorderRadius.circular(
+                                      AppSpacing.radiusXL),
                                   color: AuthColors.surface,
                                   border: Border.all(
-                                    color: AuthColors.textMain.withValues(alpha: 0.1),
+                                    color: AuthColors.textMain
+                                        .withValues(alpha: 0.1),
                                   ),
                                 ),
                                 child: const Text(
@@ -295,43 +304,52 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildLogoSection(),
-                                    const SizedBox(height: AppSpacing.paddingXXL),
+                                    const SizedBox(
+                                        height: AppSpacing.paddingXXL),
                                     TextFormField(
                                       controller: _headerNameController,
-                                      style: const TextStyle(color: AuthColors.textMain),
+                                      style: const TextStyle(
+                                          color: AuthColors.textMain),
                                       decoration: _inputDecoration('Name *'),
-                                      validator: (value) =>
-                                          (value == null || value.trim().isEmpty)
-                                              ? 'Enter name'
-                                              : null,
+                                      validator: (value) => (value == null ||
+                                              value.trim().isEmpty)
+                                          ? 'Enter name'
+                                          : null,
                                     ),
-                                    const SizedBox(height: AppSpacing.paddingLG),
+                                    const SizedBox(
+                                        height: AppSpacing.paddingLG),
                                     TextFormField(
                                       controller: _headerAddressController,
-                                      style: const TextStyle(color: AuthColors.textMain),
+                                      style: const TextStyle(
+                                          color: AuthColors.textMain),
                                       decoration: _inputDecoration('Address *'),
                                       maxLines: 3,
-                                      validator: (value) =>
-                                          (value == null || value.trim().isEmpty)
-                                              ? 'Enter address'
-                                              : null,
+                                      validator: (value) => (value == null ||
+                                              value.trim().isEmpty)
+                                          ? 'Enter address'
+                                          : null,
                                     ),
-                                    const SizedBox(height: AppSpacing.paddingLG),
+                                    const SizedBox(
+                                        height: AppSpacing.paddingLG),
                                     TextFormField(
                                       controller: _headerPhoneController,
-                                      style: const TextStyle(color: AuthColors.textMain),
+                                      style: const TextStyle(
+                                          color: AuthColors.textMain),
                                       decoration: _inputDecoration('Phone *'),
                                       keyboardType: TextInputType.phone,
-                                      validator: (value) =>
-                                          (value == null || value.trim().isEmpty)
-                                              ? 'Enter phone number'
-                                              : null,
+                                      validator: (value) => (value == null ||
+                                              value.trim().isEmpty)
+                                          ? 'Enter phone number'
+                                          : null,
                                     ),
-                                    const SizedBox(height: AppSpacing.paddingLG),
+                                    const SizedBox(
+                                        height: AppSpacing.paddingLG),
                                     TextFormField(
                                       controller: _headerGstNoController,
-                                      style: const TextStyle(color: AuthColors.textMain),
-                                      decoration: _inputDecoration('GST No (Optional)'),
+                                      style: const TextStyle(
+                                          color: AuthColors.textMain),
+                                      decoration:
+                                          _inputDecoration('GST No (Optional)'),
                                     ),
                                   ],
                                 ),
@@ -342,8 +360,10 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                 title: 'Footer Settings',
                                 child: TextFormField(
                                   controller: _footerCustomTextController,
-                                  style: const TextStyle(color: AuthColors.textMain),
-                                  decoration: _inputDecoration('Custom Text (Optional)'),
+                                  style: const TextStyle(
+                                      color: AuthColors.textMain),
+                                  decoration: _inputDecoration(
+                                      'Custom Text (Optional)'),
                                   maxLines: 3,
                                 ),
                               ),
@@ -362,39 +382,49 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: AppSpacing.paddingMD),
+                                    const SizedBox(
+                                        height: AppSpacing.paddingMD),
                                     Row(
                                       children: [
                                         Expanded(
                                           child: _PrintOption(
                                             label: 'Universal',
                                             icon: Icons.style,
-                                            isSelected: _templateType == DmTemplateType.universal,
+                                            isSelected: _templateType ==
+                                                DmTemplateType.universal,
                                             onTap: () => setState(() {
-                                              _templateType = DmTemplateType.universal;
+                                              _templateType =
+                                                  DmTemplateType.universal;
                                             }),
                                           ),
                                         ),
-                                        const SizedBox(width: AppSpacing.paddingMD),
+                                        const SizedBox(
+                                            width: AppSpacing.paddingMD),
                                         Expanded(
                                           child: _PrintOption(
                                             label: 'Custom',
                                             icon: Icons.brush,
-                                            isSelected: _templateType == DmTemplateType.custom,
+                                            isSelected: _templateType ==
+                                                DmTemplateType.custom,
                                             onTap: () => setState(() {
-                                              _templateType = DmTemplateType.custom;
+                                              _templateType =
+                                                  DmTemplateType.custom;
                                             }),
                                           ),
                                         ),
                                       ],
                                     ),
-                                    if (_templateType == DmTemplateType.custom) ...[
-                                      const SizedBox(height: AppSpacing.paddingXL),
+                                    if (_templateType ==
+                                        DmTemplateType.custom) ...[
+                                      const SizedBox(
+                                          height: AppSpacing.paddingXL),
                                       DropdownButtonFormField<String>(
-                                        value: _selectedCustomTemplateId,
-                                        decoration: _inputDecoration('Custom Template *'),
+                                        initialValue: _selectedCustomTemplateId,
+                                        decoration: _inputDecoration(
+                                            'Custom Template *'),
                                         dropdownColor: AuthColors.surface,
-                                        style: const TextStyle(color: AuthColors.textMain),
+                                        style: const TextStyle(
+                                            color: AuthColors.textMain),
                                         iconEnabledColor: AuthColors.textSub,
                                         items: _templateOptions
                                             .map(
@@ -402,7 +432,9 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                                 value: id,
                                                 child: Text(
                                                   '$id${id == 'LIT2' ? ' (Blank Unit Price + Total)' : ''}',
-                                                  style: const TextStyle(color: AuthColors.textMain),
+                                                  style: const TextStyle(
+                                                      color:
+                                                          AuthColors.textMain),
                                                 ),
                                               ),
                                             )
@@ -414,7 +446,8 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                           });
                                         },
                                       ),
-                                      const SizedBox(height: AppSpacing.paddingXS),
+                                      const SizedBox(
+                                          height: AppSpacing.paddingXS),
                                       const Text(
                                         'LIT1: Standard template | LIT2: hides Unit Price and Total.',
                                         style: TextStyle(
@@ -441,33 +474,40 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: AppSpacing.paddingMD),
+                                    const SizedBox(
+                                        height: AppSpacing.paddingMD),
                                     Row(
                                       children: [
                                         Expanded(
                                           child: _PrintOption(
                                             label: 'Portrait',
                                             icon: Icons.portrait,
-                                            isSelected: _printOrientation == DmPrintOrientation.portrait,
+                                            isSelected: _printOrientation ==
+                                                DmPrintOrientation.portrait,
                                             onTap: () => setState(() {
-                                              _printOrientation = DmPrintOrientation.portrait;
+                                              _printOrientation =
+                                                  DmPrintOrientation.portrait;
                                             }),
                                           ),
                                         ),
-                                        const SizedBox(width: AppSpacing.paddingMD),
+                                        const SizedBox(
+                                            width: AppSpacing.paddingMD),
                                         Expanded(
                                           child: _PrintOption(
                                             label: 'Landscape',
                                             icon: Icons.landscape,
-                                            isSelected: _printOrientation == DmPrintOrientation.landscape,
+                                            isSelected: _printOrientation ==
+                                                DmPrintOrientation.landscape,
                                             onTap: () => setState(() {
-                                              _printOrientation = DmPrintOrientation.landscape;
+                                              _printOrientation =
+                                                  DmPrintOrientation.landscape;
                                             }),
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: AppSpacing.paddingXL),
+                                    const SizedBox(
+                                        height: AppSpacing.paddingXL),
                                     const Text(
                                       'Payment Display',
                                       style: TextStyle(
@@ -476,27 +516,33 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: AppSpacing.paddingMD),
+                                    const SizedBox(
+                                        height: AppSpacing.paddingMD),
                                     Row(
                                       children: [
                                         Expanded(
                                           child: _PrintOption(
                                             label: 'QR Code',
                                             icon: Icons.qr_code,
-                                            isSelected: _paymentDisplay == DmPaymentDisplay.qrCode,
+                                            isSelected: _paymentDisplay ==
+                                                DmPaymentDisplay.qrCode,
                                             onTap: () => setState(() {
-                                              _paymentDisplay = DmPaymentDisplay.qrCode;
+                                              _paymentDisplay =
+                                                  DmPaymentDisplay.qrCode;
                                             }),
                                           ),
                                         ),
-                                        const SizedBox(width: AppSpacing.paddingMD),
+                                        const SizedBox(
+                                            width: AppSpacing.paddingMD),
                                         Expanded(
                                           child: _PrintOption(
                                             label: 'Bank Details',
                                             icon: Icons.account_balance,
-                                            isSelected: _paymentDisplay == DmPaymentDisplay.bankDetails,
+                                            isSelected: _paymentDisplay ==
+                                                DmPaymentDisplay.bankDetails,
                                             onTap: () => setState(() {
-                                              _paymentDisplay = DmPaymentDisplay.bankDetails;
+                                              _paymentDisplay =
+                                                  DmPaymentDisplay.bankDetails;
                                             }),
                                           ),
                                         ),
@@ -667,8 +713,11 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                     )
                   else
                     DashButton(
-                      label: _selectedLogoFile != null ? 'Upload Logo' : 'Pick Logo',
-                      onPressed: _selectedLogoFile != null ? _uploadLogo : _pickLogo,
+                      label: _selectedLogoFile != null
+                          ? 'Upload Logo'
+                          : 'Pick Logo',
+                      onPressed:
+                          _selectedLogoFile != null ? _uploadLogo : _pickLogo,
                     ),
                   if (_logoImageUrl != null || _selectedLogoFile != null) ...[
                     const SizedBox(height: AppSpacing.paddingSM),

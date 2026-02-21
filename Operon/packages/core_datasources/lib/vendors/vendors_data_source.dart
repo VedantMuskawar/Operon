@@ -188,31 +188,39 @@ class VendorsDataSource {
       return fetchVendors(organizationId);
     }
 
+    final merged = <String, Vendor>{};
+
     try {
-      final snapshot = await _vendorsRef
+      final arraySnapshot = await _vendorsRef
           .where('organizationId', isEqualTo: organizationId)
-          .where('vendorType', isEqualTo: vendorType.name)
-          .orderBy('name_lowercase')
+          .where('vendorTypes', arrayContains: vendorType.name)
           .get();
-      final vendors = snapshot.docs
-          .map((doc) => Vendor.fromJson(doc.data(), doc.id))
-          .toList();
-      vendors
-          .sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-      return vendors;
-    } catch (e) {
-      // If index is not ready, fetch without orderBy and sort in memory
-      final snapshot = await _vendorsRef
-          .where('organizationId', isEqualTo: organizationId)
-          .where('vendorType', isEqualTo: vendorType.name)
-          .get();
-      final vendors = snapshot.docs
-          .map((doc) => Vendor.fromJson(doc.data(), doc.id))
-          .toList();
-      vendors
-          .sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-      return vendors;
+      for (final doc in arraySnapshot.docs) {
+        final vendor = Vendor.fromJson(doc.data(), doc.id);
+        merged[vendor.id] = vendor;
+      }
+    } catch (_) {
+      // Continue with legacy fallback query below.
     }
+
+    try {
+      final legacySnapshot = await _vendorsRef
+          .where('organizationId', isEqualTo: organizationId)
+          .where('vendorType', isEqualTo: vendorType.name)
+          .get();
+      for (final doc in legacySnapshot.docs) {
+        final vendor = Vendor.fromJson(doc.data(), doc.id);
+        merged[vendor.id] = vendor;
+      }
+    } catch (_) {
+      // Final fallback: in-memory filtering from all vendors.
+      final vendors = await fetchVendors(organizationId);
+      return vendors.where((vendor) => vendor.hasVendorType(vendorType)).toList();
+    }
+
+    final vendors = merged.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return vendors;
   }
 
   Future<List<Vendor>> filterVendorsByStatus(

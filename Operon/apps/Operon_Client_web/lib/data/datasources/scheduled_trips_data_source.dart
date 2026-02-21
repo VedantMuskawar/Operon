@@ -10,7 +10,8 @@ class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
   ScheduledTripsDataSource({super.firestore});
 
   /// Get scheduled trips for an order
-  Future<List<Map<String, dynamic>>> getScheduledTripsForOrder(String orderId) async {
+  Future<List<Map<String, dynamic>>> getScheduledTripsForOrder(
+      String orderId) async {
     final snapshot = await firestore
         .collection(collection)
         .where('orderId', isEqualTo: orderId)
@@ -28,17 +29,20 @@ class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
   }
 
   /// Watch scheduled trips for a specific date
+  @override
   Stream<List<Map<String, dynamic>>> watchScheduledTripsForDate({
     required String organizationId,
     required DateTime scheduledDate,
   }) {
-    final startOfDay = DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
+    final startOfDay =
+        DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     return firestore
         .collection(collection)
         .where('organizationId', isEqualTo: organizationId)
-        .where('scheduledDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where('scheduledDate',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
         .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
         .limit(500)
         .snapshots()
@@ -79,8 +83,10 @@ class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
       }
 
       activeTrips.sort((a, b) {
-        final statusA = a['tripStatus'] as String? ?? a['orderStatus'] as String?;
-        final statusB = b['tripStatus'] as String? ?? b['orderStatus'] as String?;
+        final statusA =
+            a['tripStatus'] as String? ?? a['orderStatus'] as String?;
+        final statusB =
+            b['tripStatus'] as String? ?? b['orderStatus'] as String?;
         final rankCompare = statusRank(statusA).compareTo(statusRank(statusB));
         if (rankCompare != 0) return rankCompare;
         final slotA = a['slot'] as int? ?? 0;

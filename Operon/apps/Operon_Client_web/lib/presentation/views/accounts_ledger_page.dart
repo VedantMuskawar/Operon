@@ -12,6 +12,7 @@ import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 class AccountsLedgerPage extends StatefulWidget {
   const AccountsLedgerPage({super.key});
@@ -30,10 +31,9 @@ enum _LedgerSortOption {
 }
 
 enum _LedgerFilterType {
-  all,
   employees,
-  vendors,
   clients,
+  vendors,
 }
 
 class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
@@ -42,7 +42,7 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
   List<_CombinedLedger> _ledgers = [];
   String _query = '';
   _LedgerSortOption _sortOption = _LedgerSortOption.updatedNewest;
-  _LedgerFilterType _filterType = _LedgerFilterType.all;
+  _LedgerFilterType _filterType = _LedgerFilterType.employees;
   String? _refreshingLedgerId;
 
   static final Map<String, List<_CombinedLedger>> _ledgerCache = {};
@@ -338,49 +338,9 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
               ),
             ),
             const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AuthColors.surface.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AuthColors.textSub.withOpacity(0.2),
-                ),
-              ),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  _LedgerFilterChip(
-                    label: 'All',
-                    isSelected: _filterType == _LedgerFilterType.all,
-                    onTap: () => setState(() {
-                      _filterType = _LedgerFilterType.all;
-                    }),
-                  ),
-                  _LedgerFilterChip(
-                    label: 'Employees',
-                    isSelected: _filterType == _LedgerFilterType.employees,
-                    onTap: () => setState(() {
-                      _filterType = _LedgerFilterType.employees;
-                    }),
-                  ),
-                  _LedgerFilterChip(
-                    label: 'Vendors',
-                    isSelected: _filterType == _LedgerFilterType.vendors,
-                    onTap: () => setState(() {
-                      _filterType = _LedgerFilterType.vendors;
-                    }),
-                  ),
-                  _LedgerFilterChip(
-                    label: 'Clients',
-                    isSelected: _filterType == _LedgerFilterType.clients,
-                    onTap: () => setState(() {
-                      _filterType = _LedgerFilterType.clients;
-                    }),
-                  ),
-                ],
-              ),
+            _LedgerTypeTabs(
+              selected: _filterType,
+              onChanged: (value) => setState(() => _filterType = value),
             ),
             const SizedBox(width: 12),
             Container(
@@ -496,17 +456,13 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
   List<_CombinedLedger> _applyFiltersAndSort(List<_CombinedLedger> ledgers) {
     final query = _query.trim().toLowerCase();
     final filtered = ledgers.where((ledger) {
-      if (_filterType != _LedgerFilterType.all) {
-        final matchType = switch (_filterType) {
-          _LedgerFilterType.employees => _AccountType.employee,
-          _LedgerFilterType.vendors => _AccountType.vendor,
-          _LedgerFilterType.clients => _AccountType.client,
-          _LedgerFilterType.all => null,
-        };
-        if (matchType != null &&
-            !ledger.accounts.any((account) => account.type == matchType)) {
-          return false;
-        }
+      final matchType = switch (_filterType) {
+        _LedgerFilterType.employees => _AccountType.employee,
+        _LedgerFilterType.clients => _AccountType.client,
+        _LedgerFilterType.vendors => _AccountType.vendor,
+      };
+      if (!ledger.accounts.any((account) => account.type == matchType)) {
+        return false;
       }
 
       if (query.isEmpty) return true;
@@ -1475,13 +1431,7 @@ class _LedgerListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
-      ),
+    return AnimationLimiter(
       child: ListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -1492,7 +1442,7 @@ class _LedgerListView extends StatelessWidget {
           final subtitle =
               '${ledger.accounts.length} accounts • Updated ${_formatDateTime(ledger.lastRefreshedAt)}';
 
-          return Container(
+          final content = Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               color: AuthColors.background,
@@ -1509,6 +1459,36 @@ class _LedgerListView extends StatelessWidget {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AuthColors.success.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.group_outlined,
+                          size: 12,
+                          color: AuthColors.success,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          ledger.accounts.length.toString(),
+                          style: const TextStyle(
+                            color: AuthColors.success,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(Icons.visibility_outlined,
                         size: 20, color: AuthColors.textSub),
@@ -1517,7 +1497,7 @@ class _LedgerListView extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   if (isRefreshing && refreshingId == ledger.id)
                     const SizedBox(
                       width: 20,
@@ -1536,7 +1516,7 @@ class _LedgerListView extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   IconButton(
                     icon: const Icon(Icons.edit_outlined,
                         size: 20, color: AuthColors.textSub),
@@ -1545,7 +1525,7 @@ class _LedgerListView extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 4),
                   IconButton(
                     icon: const Icon(Icons.delete_outline,
                         size: 20, color: AuthColors.error),
@@ -1559,6 +1539,23 @@ class _LedgerListView extends StatelessWidget {
               onTap: () => onOpen(ledger),
             ),
           );
+
+          const int maxAnimatedItems = 20;
+          if (index < maxAnimatedItems) {
+            return AnimationConfiguration.staggeredList(
+              position: index,
+              duration: const Duration(milliseconds: 200),
+              child: SlideAnimation(
+                verticalOffset: 50.0,
+                child: FadeInAnimation(
+                  curve: Curves.easeOut,
+                  child: content,
+                ),
+              ),
+            );
+          }
+
+          return content;
         },
       ),
     );
@@ -1671,8 +1668,52 @@ class _LedgerStatCard extends StatelessWidget {
   }
 }
 
-class _LedgerFilterChip extends StatelessWidget {
-  const _LedgerFilterChip({
+class _LedgerTypeTabs extends StatelessWidget {
+  const _LedgerTypeTabs({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final _LedgerFilterType selected;
+  final ValueChanged<_LedgerFilterType> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AuthColors.textMainWithOpacity(0.1),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _LedgerTypeTabButton(
+            label: 'Employees',
+            isSelected: selected == _LedgerFilterType.employees,
+            onTap: () => onChanged(_LedgerFilterType.employees),
+          ),
+          _LedgerTypeTabButton(
+            label: 'Clients',
+            isSelected: selected == _LedgerFilterType.clients,
+            onTap: () => onChanged(_LedgerFilterType.clients),
+          ),
+          _LedgerTypeTabButton(
+            label: 'Vendors',
+            isSelected: selected == _LedgerFilterType.vendors,
+            onTap: () => onChanged(_LedgerFilterType.vendors),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LedgerTypeTabButton extends StatelessWidget {
+  const _LedgerTypeTabButton({
     required this.label,
     required this.isSelected,
     required this.onTap,
@@ -1686,26 +1727,21 @@ class _LedgerFilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
               ? AuthColors.primary.withOpacity(0.2)
-              : AuthColors.background,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? AuthColors.primary
-                : AuthColors.textMainWithOpacity(0.12),
-          ),
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? AuthColors.textMain : AuthColors.textSub,
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AuthColors.primary : AuthColors.textSub,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            fontSize: 13,
           ),
         ),
       ),

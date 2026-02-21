@@ -650,6 +650,10 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
   @override
   Widget build(BuildContext context) {
     final clientName = widget.trip['clientName'] as String? ?? 'N/A';
+    final clientPhone = (widget.trip['clientPhone'] as String?)?.trim() ??
+        (widget.trip['customerNumber'] as String?)?.trim() ??
+        (widget.trip['clientPhoneNumber'] as String?)?.trim() ??
+        '';
     final vehicleNumber = widget.trip['vehicleNumber'] as String? ?? 'N/A';
     final slot = widget.trip['slot'] as int? ?? 0;
     final transportMode = widget.trip['transportMode'] as String?;
@@ -667,6 +671,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
     final productName = firstItem?['productName'] as String? ?? 'N/A';
     final fixedQuantityPerTrip =
         firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
+    final unitPrice = (firstItem?['unitPrice'] as num?)?.toDouble() ?? 0.0;
 
     final tripPricing = widget.trip['tripPricing'] as Map<String, dynamic>?;
     final tripSubtotal = (tripPricing?['subtotal'] as num?)?.toDouble() ?? 0.0;
@@ -857,6 +862,29 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                               ),
                             ],
                           ),
+                          if (clientPhone.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.phone_outlined,
+                                  size: 14,
+                                  color: AuthColors.textSub,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    clientPhone,
+                                    style: const TextStyle(
+                                      color: AuthColors.textMain,
+                                      fontSize: 12,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -921,8 +949,10 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
 
                 const SizedBox(height: 12),
 
-                // Product and Quantity
-                Row(
+                // Bricks, Fixed Quantity, Unit Price, DM Number
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -944,14 +974,13 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                             productName,
                             style: const TextStyle(
                               color: AuthColors.textMain,
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 6),
@@ -963,7 +992,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                         ),
                       ),
                       child: Text(
-                        'Qty: $fixedQuantityPerTrip',
+                        '$fixedQuantityPerTrip',
                         style: const TextStyle(
                           color: AuthColors.textMain,
                           fontSize: 12,
@@ -971,6 +1000,60 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                         ),
                       ),
                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AuthColors.warning.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AuthColors.warning.withOpacity(0.35),
+                        ),
+                      ),
+                      child: Text(
+                        '₹${unitPrice.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: AuthColors.textMain,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (hasDM)
+                      InkWell(
+                        onTap: () => _showPrintDialog(context),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AuthColors.info.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AuthColors.info.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.receipt_long,
+                                size: 14,
+                                color: Color(0xFF0D47A1),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '$dmNumber',
+                                style: const TextStyle(
+                                  color: Color(0xFF0D47A1),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
 
@@ -1106,45 +1189,6 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                   const SizedBox(height: 12),
                 ],
 
-                // DM Information - Clickable DM Number (access point for printing)
-                if (hasDM) ...[
-                  InkWell(
-                    onTap: () => _showPrintDialog(context),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AuthColors.info.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AuthColors.info.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.receipt_long,
-                            size: 14,
-                            color: Color(0xFF0D47A1),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'DM Generated: $dmNumber',
-                            style: const TextStyle(
-                              color: Color(0xFF0D47A1),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
                 // Divider before action buttons
                 if (showActions) ...[
                   Divider(
@@ -1165,8 +1209,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                             icon: Icons.visibility_outlined,
                             label: 'View DM',
                             color: AuthColors.info.withOpacity(0.3),
-                            onTap: () => DashSnackbar.show(context,
-                                message: 'Feature under development'),
+                            onTap: () => _showPrintDialog(context),
                           ),
                         ),
                         // Only allow canceling DM if trip is still scheduled (DM required before dispatch)

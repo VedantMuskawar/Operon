@@ -49,6 +49,13 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
   bool _isLoadingVehicles = false;
   bool _isSubmitting = false;
 
+  bool _vendorSupports(Vendor? vendor, VendorType type) {
+    return vendor?.hasVendorType(type) ?? false;
+  }
+
+  bool get _showAdditionalCharges =>
+      _vendorSupports(_selectedVendor, VendorType.rawMaterial);
+
   @override
   void initState() {
     super.initState();
@@ -72,7 +79,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
   }
   
   Future<void> _loadVehicles() async {
-    if (_selectedVendor == null || _selectedVendor!.vendorType != VendorType.fuel) {
+    if (!_vendorSupports(_selectedVendor, VendorType.fuel)) {
       setState(() {
         _vehicles = [];
         _selectedVehicle = null;
@@ -106,7 +113,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
   }
   
   Future<void> _loadAssignedMaterials() async {
-    if (_selectedVendor == null || _selectedVendor!.vendorType != VendorType.rawMaterial) {
+    if (!_vendorSupports(_selectedVendor, VendorType.rawMaterial)) {
       setState(() {
         _assignedMaterials = [];
         _isLoadingMaterials = false;
@@ -190,6 +197,14 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
   
   // Calculate additional charges totals with GST
   Map<String, double> _calculateChargesTotals() {
+    if (!_showAdditionalCharges) {
+      return {
+        'subtotal': 0,
+        'gst': 0,
+        'total': 0,
+      };
+    }
+
     final unloadingAmount = double.tryParse(_unloadingChargesController.text.trim()) ?? 0;
     double chargesGst = 0;
     
@@ -266,13 +281,15 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
           })
           .toList();
 
-      // Group vendors by type
+      // Group vendors by each assigned type
       final vendorsByType = <VendorType, List<Vendor>>{};
       for (final vendor in vendors) {
-        if (!vendorsByType.containsKey(vendor.vendorType)) {
-          vendorsByType[vendor.vendorType] = [];
+        for (final type in vendor.effectiveVendorTypes) {
+          if (!vendorsByType.containsKey(type)) {
+            vendorsByType[type] = [];
+          }
+          vendorsByType[type]!.add(vendor);
         }
-        vendorsByType[vendor.vendorType]!.add(vendor);
       }
 
       // Get available types (only types that have vendors)
@@ -375,7 +392,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
       );
       return;
     }
-    if (_selectedVendor!.vendorType == VendorType.fuel && _selectedVehicle == null) {
+    if (_vendorSupports(_selectedVendor, VendorType.fuel) && _selectedVehicle == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a vehicle')),
       );
@@ -418,7 +435,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
       };
       
       // Add fuel-specific metadata
-      if (_selectedVendor!.vendorType == VendorType.fuel) {
+      if (_vendorSupports(_selectedVendor, VendorType.fuel)) {
         metadata['purchaseType'] = 'fuel';
         metadata['vehicleNumber'] = _selectedVehicle?.vehicleNumber ?? '';
         metadata['voucherNumber'] = invoiceNumber; // Use invoice/voucher number as voucher number
@@ -426,7 +443,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
       }
       
       // Add raw materials with GST breakdown
-      if (_selectedVendor!.vendorType == VendorType.rawMaterial && _assignedMaterials.isNotEmpty) {
+      if (_vendorSupports(_selectedVendor, VendorType.rawMaterial) && _assignedMaterials.isNotEmpty) {
         final rawMaterials = <Map<String, dynamic>>[];
         for (final material in _assignedMaterials) {
           final quantityText = _materialQuantityControllers[material.id]?.text.trim() ?? '0';
@@ -460,7 +477,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
       
       // Add additional charges
       final unloadingAmount = double.tryParse(_unloadingChargesController.text.trim()) ?? 0;
-      if (unloadingAmount > 0) {
+      if (_showAdditionalCharges && unloadingAmount > 0) {
         final additionalCharges = <Map<String, dynamic>>[];
         final unloadingGst = _unloadingHasGst
             ? unloadingAmount * ((double.tryParse(_unloadingGstPercentController.text.trim()) ?? 18) / 100)
@@ -644,15 +661,15 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                     _selectedVehicle = null; // Reset vehicle selection
                   });
                   // Load assigned materials if raw material vendor
-                  if (vendor != null && vendor.vendorType == VendorType.rawMaterial) {
+                  if (_vendorSupports(vendor, VendorType.rawMaterial)) {
                     _loadAssignedMaterials();
                   } else {
                     setState(() {
                       _assignedMaterials = [];
                     });
                   }
-                  // Load vehicles if fuel vendor; clear additional charges (not used for fuel)
-                  if (vendor != null && vendor.vendorType == VendorType.fuel) {
+                  // Load vehicles if fuel vendor; clear additional charges when hidden
+                  if (_vendorSupports(vendor, VendorType.fuel)) {
                     _loadVehicles();
                     _unloadingChargesController.clear();
                     _updateTotalAmount();
@@ -661,6 +678,10 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                       _vehicles = [];
                       _selectedVehicle = null;
                     });
+                  }
+                  if (!_vendorSupports(vendor, VendorType.rawMaterial)) {
+                    _unloadingChargesController.clear();
+                    _updateTotalAmount();
                   }
                 },
                 validator: (value) => value == null ? 'Please select a vendor' : null,
@@ -691,19 +712,19 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 controller: _invoiceNumberController,
                 style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration(
-                  _selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel
+                  _vendorSupports(_selectedVendor, VendorType.fuel)
                       ? 'Voucher Number'
                       : 'Invoice/Voucher Number'
                 ),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
-                        ? 'Enter ${_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel ? "voucher" : "invoice/voucher"} number'
+                    ? 'Enter ${_vendorSupports(_selectedVendor, VendorType.fuel) ? "voucher" : "invoice/voucher"} number'
                         : null,
               ),
               const SizedBox(height: AppSpacing.paddingXL),
               
               // Fuel-specific fields (vehicle option buttons)
-              if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel) ...[
+              if (_vendorSupports(_selectedVendor, VendorType.fuel)) ...[
                 _isLoadingVehicles
                     ? const Center(child: Padding(
                         padding: EdgeInsets.all(AppSpacing.paddingLG),
@@ -743,7 +764,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
               ],
               
               // Raw Materials Section (for raw material vendors)
-              if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.rawMaterial) ...[
+              if (_vendorSupports(_selectedVendor, VendorType.rawMaterial)) ...[
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   decoration: BoxDecoration(
@@ -903,8 +924,8 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 const SizedBox(height: AppSpacing.paddingXL),
               ],
               
-              // Additional Charges Section (hidden for fuel vendors)
-              if (_selectedVendor == null || _selectedVendor!.vendorType != VendorType.fuel) ...[
+              // Additional Charges Section (shown only for raw material vendors)
+              if (_showAdditionalCharges) ...[
               Container(
                 padding: const EdgeInsets.all(AppSpacing.paddingLG),
                 decoration: BoxDecoration(
@@ -1050,7 +1071,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
               
               // Final Breakdown Summary
               if (_selectedVendor != null && 
-                  _selectedVendor!.vendorType == VendorType.rawMaterial && 
+                  _vendorSupports(_selectedVendor, VendorType.rawMaterial) && 
                   (_assignedMaterials.isNotEmpty || 
                    (double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0)) ...[
                 Container(
@@ -1085,7 +1106,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: _inputDecoration('Total Amount'),
                 readOnly: _selectedVendor != null && 
-                         _selectedVendor!.vendorType == VendorType.rawMaterial && 
+                         _vendorSupports(_selectedVendor, VendorType.rawMaterial) && 
                          (_assignedMaterials.isNotEmpty || 
                           (double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0),
                 validator: (value) {

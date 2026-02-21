@@ -48,6 +48,13 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
   List<Vehicle> _vehicles = [];
   bool _isLoadingVehicles = false;
 
+  bool _vendorSupports(Vendor? vendor, VendorType type) {
+    return vendor?.hasVendorType(type) ?? false;
+  }
+
+  bool get _showAdditionalCharges =>
+      _vendorSupports(_selectedVendor, VendorType.rawMaterial);
+
   @override
   void initState() {
     super.initState();
@@ -71,8 +78,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
   }
 
   Future<void> _loadVehicles() async {
-    if (_selectedVendor == null ||
-        _selectedVendor!.vendorType != VendorType.fuel) {
+    if (!_vendorSupports(_selectedVendor, VendorType.fuel)) {
       setState(() {
         _vehicles = [];
         _selectedVehicle = null;
@@ -106,8 +112,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
   }
 
   Future<void> _loadAssignedMaterials() async {
-    if (_selectedVendor == null ||
-        _selectedVendor!.vendorType != VendorType.rawMaterial) {
+    if (!_vendorSupports(_selectedVendor, VendorType.rawMaterial)) {
       setState(() {
         _assignedMaterials = [];
         _isLoadingMaterials = false;
@@ -195,6 +200,14 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
 
   // Calculate additional charges totals with GST
   Map<String, double> _calculateChargesTotals() {
+    if (!_showAdditionalCharges) {
+      return {
+        'subtotal': 0,
+        'gst': 0,
+        'total': 0,
+      };
+    }
+
     final unloadingAmount =
         double.tryParse(_unloadingChargesController.text.trim()) ?? 0;
     double chargesGst = 0;
@@ -274,13 +287,15 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
         return Vendor.fromJson(data, doc.id);
       }).toList();
 
-      // Group vendors by type
+      // Group vendors by each assigned type
       final vendorsByType = <VendorType, List<Vendor>>{};
       for (final vendor in vendors) {
-        if (!vendorsByType.containsKey(vendor.vendorType)) {
-          vendorsByType[vendor.vendorType] = [];
+        for (final type in vendor.effectiveVendorTypes) {
+          if (!vendorsByType.containsKey(type)) {
+            vendorsByType[type] = [];
+          }
+          vendorsByType[type]!.add(vendor);
         }
-        vendorsByType[vendor.vendorType]!.add(vendor);
       }
 
       // Get available types (only types that have vendors)
@@ -383,7 +398,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       );
       return;
     }
-    if (_selectedVendor!.vendorType == VendorType.fuel &&
+    if (_vendorSupports(_selectedVendor, VendorType.fuel) &&
         _selectedVehicle == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a vehicle')),
@@ -425,7 +440,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       };
 
       // Add fuel-specific metadata
-      if (_selectedVendor!.vendorType == VendorType.fuel) {
+      if (_vendorSupports(_selectedVendor, VendorType.fuel)) {
         metadata['purchaseType'] = 'fuel';
         metadata['vehicleNumber'] = _selectedVehicle?.vehicleNumber ?? '';
         metadata['voucherNumber'] =
@@ -434,7 +449,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       }
 
       // Add raw materials with GST breakdown
-      if (_selectedVendor!.vendorType == VendorType.rawMaterial &&
+        if (_vendorSupports(_selectedVendor, VendorType.rawMaterial) &&
           _assignedMaterials.isNotEmpty) {
         final rawMaterials = <Map<String, dynamic>>[];
         for (final material in _assignedMaterials) {
@@ -472,7 +487,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       // Add additional charges
       final unloadingAmount =
           double.tryParse(_unloadingChargesController.text.trim()) ?? 0;
-      if (unloadingAmount > 0) {
+      if (_showAdditionalCharges && unloadingAmount > 0) {
         final additionalCharges = <Map<String, dynamic>>[];
         final unloadingGst = _unloadingHasGst
             ? unloadingAmount *
@@ -680,17 +695,15 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       _selectedVehicle = null; // Reset vehicle selection
                     });
                     // Load assigned materials if raw material vendor
-                    if (vendor != null &&
-                        vendor.vendorType == VendorType.rawMaterial) {
+                    if (_vendorSupports(vendor, VendorType.rawMaterial)) {
                       _loadAssignedMaterials();
                     } else {
                       setState(() {
                         _assignedMaterials = [];
                       });
                     }
-                    // Load vehicles if fuel vendor; clear additional charges (not used for fuel)
-                    if (vendor != null &&
-                        vendor.vendorType == VendorType.fuel) {
+                    // Load vehicles if fuel vendor; clear additional charges when hidden
+                    if (_vendorSupports(vendor, VendorType.fuel)) {
                       _loadVehicles();
                       _unloadingChargesController.clear();
                       _updateTotalAmount();
@@ -699,6 +712,10 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         _vehicles = [];
                         _selectedVehicle = null;
                       });
+                    }
+                    if (!_vendorSupports(vendor, VendorType.rawMaterial)) {
+                      _unloadingChargesController.clear();
+                      _updateTotalAmount();
                     }
                   },
                   validator: (value) =>
@@ -731,18 +748,18 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   controller: _invoiceNumberController,
                   style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration(_selectedVendor != null &&
-                          _selectedVendor!.vendorType == VendorType.fuel
+                        _vendorSupports(_selectedVendor, VendorType.fuel)
                       ? 'Voucher Number'
                       : 'Invoice/Voucher Number'),
                   validator: (value) => (value == null || value.trim().isEmpty)
-                      ? 'Enter ${_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel ? "voucher" : "invoice/voucher"} number'
+                      ? 'Enter ${_vendorSupports(_selectedVendor, VendorType.fuel) ? "voucher" : "invoice/voucher"} number'
                       : null,
                 ),
                 const SizedBox(height: AppSpacing.paddingLG),
 
                 // Fuel-specific fields (vehicle option buttons)
                 if (_selectedVendor != null &&
-                    _selectedVendor!.vendorType == VendorType.fuel) ...[
+                    _vendorSupports(_selectedVendor, VendorType.fuel)) ...[
                   _isLoadingVehicles
                       ? const Center(
                           child: Padding(
@@ -790,7 +807,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
 
                 // Raw Materials Section (for raw material vendors)
                 if (_selectedVendor != null &&
-                    _selectedVendor!.vendorType == VendorType.rawMaterial) ...[
+                  _vendorSupports(_selectedVendor, VendorType.rawMaterial)) ...[
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.paddingLG),
                     decoration: BoxDecoration(
@@ -989,9 +1006,8 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   const SizedBox(height: AppSpacing.paddingLG),
                 ],
 
-                // Additional Charges Section (hidden for fuel vendors)
-                if (_selectedVendor == null ||
-                    _selectedVendor!.vendorType != VendorType.fuel) ...[
+                // Additional Charges Section (shown only for raw material vendors)
+                if (_showAdditionalCharges) ...[
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.paddingLG),
                     decoration: BoxDecoration(
@@ -1167,7 +1183,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
 
                 // Final Breakdown Summary
                 if (_selectedVendor != null &&
-                    _selectedVendor!.vendorType == VendorType.rawMaterial &&
+                  _vendorSupports(_selectedVendor, VendorType.rawMaterial) &&
                     (_assignedMaterials.isNotEmpty ||
                         (double.tryParse(
                                     _unloadingChargesController.text.trim()) ??
@@ -1215,7 +1231,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration: _inputDecoration('Total Amount'),
                   readOnly: _selectedVendor != null &&
-                      _selectedVendor!.vendorType == VendorType.rawMaterial &&
+                      _vendorSupports(_selectedVendor, VendorType.rawMaterial) &&
                       (_assignedMaterials.isNotEmpty ||
                           (double.tryParse(_unloadingChargesController.text
                                       .trim()) ??

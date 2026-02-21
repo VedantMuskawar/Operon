@@ -17,6 +17,7 @@ class DriverScheduleTripsPage extends StatefulWidget {
 class _DriverScheduleTripsPageState extends State<DriverScheduleTripsPage> {
   late DateTime _selectedDate;
   final Set<String> _selectedVehicleIds = <String>{};
+  bool _isSelfTransportFilterSelected = false;
 
   Future<_ScheduleAccess>? _accessFuture;
   String? _accessOrgId;
@@ -177,12 +178,30 @@ class _DriverScheduleTripsPageState extends State<DriverScheduleTripsPage> {
     setState(() {
       if (vehicleId == null) {
         _selectedVehicleIds.clear();
+        _isSelfTransportFilterSelected = false;
       } else if (_selectedVehicleIds.contains(vehicleId)) {
         _selectedVehicleIds.remove(vehicleId);
       } else {
         _selectedVehicleIds.add(vehicleId);
       }
     });
+  }
+
+  void _onSelfTransportFilterChanged() {
+    setState(() {
+      _isSelfTransportFilterSelected = !_isSelfTransportFilterSelected;
+    });
+  }
+
+  bool _isSelfTransportTrip(Map<String, dynamic> trip) {
+    final transportMode = (trip['transportMode'] as String?)?.toLowerCase().trim();
+    if (transportMode == 'self') return true;
+
+    final vehicleId = (trip['vehicleId'] as String?)?.toUpperCase().trim();
+    if (vehicleId == 'SELF_TRANSPORT') return true;
+
+    final vehicleNumber = (trip['vehicleNumber'] as String?)?.toLowerCase().trim();
+    return vehicleNumber == 'self transport' || vehicleNumber == 'client vehicle';
   }
 
   @override
@@ -306,13 +325,19 @@ class _DriverScheduleTripsPageState extends State<DriverScheduleTripsPage> {
                     ..sort((a, b) =>
                         a.value.toLowerCase().compareTo(b.value.toLowerCase()));
 
-                  final filteredTrips = _selectedVehicleIds.isEmpty
+                    final hasVehicleFilter = _selectedVehicleIds.isNotEmpty;
+                    final hasSelfTransportFilter = _isSelfTransportFilterSelected;
+
+                    final filteredTrips = (!hasVehicleFilter && !hasSelfTransportFilter)
                       ? trips
                       : trips.where((trip) {
-                          final vehicleId = trip['vehicleId'] as String?;
-                          return vehicleId != null &&
-                              _selectedVehicleIds.contains(vehicleId);
-                        }).toList();
+                        final vehicleId = trip['vehicleId'] as String?;
+                        final matchesVehicle = vehicleId != null &&
+                          _selectedVehicleIds.contains(vehicleId);
+                        final matchesSelfTransport =
+                          hasSelfTransportFilter && _isSelfTransportTrip(trip);
+                        return matchesVehicle || matchesSelfTransport;
+                      }).toList();
 
                   return Column(
                     children: [
@@ -323,19 +348,29 @@ class _DriverScheduleTripsPageState extends State<DriverScheduleTripsPage> {
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
                             padding: const EdgeInsets.symmetric(horizontal: 12),
-                            itemCount: vehicleEntries.length + 1,
+                            itemCount: vehicleEntries.length + 2,
                             itemBuilder: (context, index) {
                               if (index == 0) {
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8),
                                   child: _VehicleFilterButton(
                                     label: 'All',
-                                    isSelected: _selectedVehicleIds.isEmpty,
+                                    isSelected: _selectedVehicleIds.isEmpty && !_isSelfTransportFilterSelected,
                                     onTap: () => _onVehicleFilterChanged(null),
                                   ),
                                 );
                               }
-                              final entry = vehicleEntries[index - 1];
+                              if (index == 1) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: _VehicleFilterButton(
+                                    label: 'Client Vehicle / Self Transport',
+                                    isSelected: _isSelfTransportFilterSelected,
+                                    onTap: _onSelfTransportFilterChanged,
+                                  ),
+                                );
+                              }
+                              final entry = vehicleEntries[index - 2];
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: _VehicleFilterButton(

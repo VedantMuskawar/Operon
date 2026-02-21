@@ -95,6 +95,7 @@ class _TripWagesContent extends StatefulWidget {
 class _TripWagesContentState extends State<_TripWagesContent> {
   DateTime _selectedDate = DateTime.now();
   int _sectionIndex = 0;
+  String? _selectedVehicleFilter;
   final WeeklyLedgerActionController _ledgerActions = WeeklyLedgerActionController();
 
   @override
@@ -459,6 +460,58 @@ class _TripWagesContentState extends State<_TripWagesContent> {
     return cubit.calculateWageForQuantity(quantity, method);
   }
 
+  String _extractVehicleNumber(Map<String, dynamic> dm) {
+    final raw = dm['vehicleNumber']?.toString().trim();
+    if (raw == null || raw.isEmpty) return 'Unknown Vehicle';
+    return raw;
+  }
+
+  Widget _buildVehicleFilterChips({
+    required Map<String, int> vehicleCounts,
+    required String? selectedVehicle,
+    required int totalCount,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AuthColors.textMainWithOpacity(0.03),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AuthColors.textMainWithOpacity(0.12),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ChoiceChip(
+              label: Text('All ($totalCount)'),
+              selected: selectedVehicle == null,
+              onSelected: (_) {
+                setState(() => _selectedVehicleFilter = null);
+              },
+            ),
+            ...vehicleCounts.entries.map((entry) {
+              final vehicleNumber = entry.key;
+              final count = entry.value;
+              return ChoiceChip(
+                label: Text('$vehicleNumber ($count)'),
+                selected: selectedVehicle == vehicleNumber,
+                onSelected: (_) {
+                  setState(() {
+                    _selectedVehicleFilter = vehicleNumber;
+                  });
+                },
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<TripWagesCubit, TripWagesState>(
@@ -487,6 +540,20 @@ class _TripWagesContentState extends State<_TripWagesContent> {
         final employeeNameById = {
           for (final employee in state.loadingEmployees) employee.id: employee.name,
         };
+        final vehicleCounts = <String, int>{};
+        for (final dm in state.activeDMs) {
+          final vehicleNumber = _extractVehicleNumber(dm);
+          vehicleCounts[vehicleNumber] = (vehicleCounts[vehicleNumber] ?? 0) + 1;
+        }
+        final selectedVehicle = _selectedVehicleFilter != null &&
+                vehicleCounts.containsKey(_selectedVehicleFilter)
+            ? _selectedVehicleFilter
+            : null;
+        final filteredActiveDMs = selectedVehicle == null
+            ? state.activeDMs
+            : state.activeDMs
+                .where((dm) => _extractVehicleNumber(dm) == selectedVehicle)
+                .toList();
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -578,6 +645,14 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 8),
+                    if (vehicleCounts.isNotEmpty) ...[
+                      _buildVehicleFilterChips(
+                        vehicleCounts: vehicleCounts,
+                        selectedVehicle: selectedVehicle,
+                        totalCount: state.activeDMs.length,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     LayoutBuilder(
                 builder: (context, constraints) {
                   return SizedBox(
@@ -590,7 +665,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                     // DM Cards (2/3 width)
                     Expanded(
                       flex: 2,
-                      child: state.activeDMs.isEmpty
+                      child: filteredActiveDMs.isEmpty
                           ? Container(
                               padding: const EdgeInsets.all(48),
                               decoration: BoxDecoration(
@@ -611,7 +686,9 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
-                                      'No active delivery memos for this date',
+                                      state.activeDMs.isEmpty
+                                          ? 'No active delivery memos for this date'
+                                          : 'No delivery memos for selected vehicle',
                                       style: TextStyle(
                                         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                         fontSize: 16,
@@ -619,7 +696,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      '${state.activeDMs.length} DMs found',
+                                      '${filteredActiveDMs.length} DMs found',
                                       style: TextStyle(
                                         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                                         fontSize: 14,
@@ -633,8 +710,8 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                               builder: (context, constraints) {
                                 // Cap displayed cards to avoid browser tab crash on massive days
                                 const maxDisplayedDMs = 50;
-                                final displayedDMs = state.activeDMs.take(maxDisplayedDMs).toList();
-                                final hasMore = state.activeDMs.length > maxDisplayedDMs;
+                                final displayedDMs = filteredActiveDMs.take(maxDisplayedDMs).toList();
+                                final hasMore = filteredActiveDMs.length > maxDisplayedDMs;
                                 // Calculate number of columns based on available width (2/3 of total)
                                 final availableWidth = constraints.maxWidth;
                                 final crossAxisCount = (availableWidth / 400).floor().clamp(1, 3);
@@ -648,7 +725,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                                         Padding(
                                           padding: const EdgeInsets.only(bottom: 12),
                                           child: Text(
-                                            'Showing first $maxDisplayedDMs of ${state.activeDMs.length} delivery memos',
+                                            'Showing first $maxDisplayedDMs of ${filteredActiveDMs.length} delivery memos',
                                             style: TextStyle(
                                               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                               fontSize: 14,
@@ -700,7 +777,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                     Expanded(
                       flex: 1,
                       child: _WageSummaryTable(
-                        activeDMs: state.activeDMs,
+                        activeDMs: filteredActiveDMs,
                         employeeNameById: employeeNameById,
                       ),
                     ),

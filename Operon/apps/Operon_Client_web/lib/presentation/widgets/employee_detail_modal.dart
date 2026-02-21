@@ -14,6 +14,7 @@ import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/utils/financial_year_utils.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/detail_modal_base.dart';
+import 'package:dash_web/presentation/widgets/ledger_adjustment_dialog.dart';
 import 'package:dash_web/presentation/widgets/salary_voucher_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -945,6 +946,12 @@ class _LedgerTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orgState = context.watch<OrganizationContextCubit>().state;
+    final fallbackAdmin =
+        (orgState.organization?.role.toUpperCase() ?? '') == 'ADMIN';
+    final isAdmin = orgState.appAccessRole?.isAdmin ?? fallbackAdmin;
+    final organizationId = orgState.organization?.id;
+
     final visible = List<Map<String, dynamic>>.from(transactions);
     if (visible.isEmpty) {
       return Column(
@@ -978,7 +985,7 @@ class _LedgerTable extends StatelessWidget {
       );
     }
 
-    DateTime _toDate(dynamic value) {
+    DateTime toDate(dynamic value) {
       if (value == null) return DateTime.now();
       if (value is DateTime) return value;
       if (value is Timestamp) return value.toDate();
@@ -989,12 +996,12 @@ class _LedgerTable extends StatelessWidget {
       }
     }
 
-    DateTime _dateOnly(DateTime date) =>
+    DateTime dateOnly(DateTime date) =>
         DateTime(date.year, date.month, date.day);
 
     visible.sort((a, b) {
-      final ad = _toDate(a['transactionDate'] ?? a['createdAt']);
-      final bd = _toDate(b['transactionDate'] ?? b['createdAt']);
+      final ad = toDate(a['transactionDate'] ?? a['createdAt']);
+      final bd = toDate(b['transactionDate'] ?? b['createdAt']);
       return ad.compareTo(bd);
     });
 
@@ -1003,7 +1010,7 @@ class _LedgerTable extends StatelessWidget {
     for (final tx in visible) {
       final type = (tx['type'] as String? ?? 'credit').toLowerCase();
       final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-      final date = _dateOnly(_toDate(tx['transactionDate'] ?? tx['createdAt']));
+      final date = dateOnly(toDate(tx['transactionDate'] ?? tx['createdAt']));
       final isCredit = type == 'credit';
       final credit = isCredit ? amount : 0.0;
       final debit = isCredit ? 0.0 : amount;
@@ -1066,11 +1073,36 @@ class _LedgerTable extends StatelessWidget {
                 fontFamily: 'SF Pro Display',
               ),
             ),
-            DashButton(
-              label: 'Generate Ledger',
-              icon: Icons.picture_as_pdf,
-              onPressed: () => _generateLedgerPdf(context),
-              variant: DashButtonVariant.text,
+            Row(
+              children: [
+                if (isAdmin && organizationId != null) ...[
+                  DashButton(
+                    label: 'Adjustment',
+                    icon: Icons.tune,
+                    variant: DashButtonVariant.text,
+                    onPressed: () {
+                      showDialog<bool>(
+                        context: context,
+                        builder: (_) => LedgerAdjustmentDialog(
+                          organizationId: organizationId,
+                          ledgerType: LedgerType.employeeLedger,
+                          entityId: employeeId,
+                          entityName: employeeName,
+                          transactionCategory:
+                              TransactionCategory.employeeAdjustment,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                DashButton(
+                  label: 'Generate Ledger',
+                  icon: Icons.picture_as_pdf,
+                  onPressed: () => _generateLedgerPdf(context),
+                  variant: DashButtonVariant.text,
+                ),
+              ],
             ),
           ],
         ),

@@ -2912,11 +2912,11 @@ class _OverviewTab extends StatelessWidget {
     final paymentTypeValue = (paymentType ?? '').toLowerCase();
     final orgState = context.read<OrganizationContextCubit>().state;
     final fallbackAdmin =
-      (orgState.organization?.role.toUpperCase() ?? '') == 'ADMIN';
+        (orgState.organization?.role.toUpperCase() ?? '') == 'ADMIN';
     final isAdminRole = orgState.appAccessRole?.isAdmin ?? fallbackAdmin;
     final scheduledDate = _resolveDeliveryDate(trip);
     final isScheduledForToday =
-      _isSameCalendarDay(scheduledDate, DateTime.now());
+        _isSameCalendarDay(scheduledDate, DateTime.now());
 
     final isDispatched = tripStatus.toLowerCase() == 'dispatched';
     final isDelivered = tripStatus.toLowerCase() == 'delivered';
@@ -3100,7 +3100,7 @@ class _OverviewTab extends StatelessWidget {
             ),
             if (!canRecordPayment && isReturned && !isAdminRole) ...[
               const SizedBox(height: AppSpacing.paddingSM),
-              Text(
+              const Text(
                 'Only Admin can record payment after trip day. For other roles, this is allowed only on the scheduled day.',
                 style: TextStyle(
                   color: AuthColors.textSub,

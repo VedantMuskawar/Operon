@@ -393,6 +393,15 @@ class DmPrintService {
     return '₹$formatted';
   }
 
+  /// Format currency with 2 decimals (for Unit Price display)
+  String _formatCurrencyWithDecimals(double amount) {
+    final formatted = amount.toStringAsFixed(2).replaceAllMapped(
+          RegExp(r'(\d)(?=(\d{3})+\.)'),
+          (Match m) => '${m[1]},',
+        );
+    return '₹$formatted';
+  }
+
   /// Format number (with commas)
   String _formatNumber(double number) {
     return number.toStringAsFixed(0).replaceAllMapped(
@@ -1651,7 +1660,7 @@ class DmPrintService {
               <div class="table">
                 <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
                 <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
-                <div class="table-row"><span>💰 Unit Price</span><span>${hidePriceFields ? '' : _formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>${hidePriceFields ? '' : _formatCurrencyWithDecimals(productUnitPrice)}</span></div>
                 <div class="table-row-total"><span>🧾 Total</span><span>${hidePriceFields ? '' : _formatCurrency(total)}</span></div>
                 <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
               </div>
@@ -1716,7 +1725,7 @@ class DmPrintService {
               <div class="table">
                 <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
                 <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
-                <div class="table-row"><span>💰 Unit Price</span><span>${hidePriceFields ? '' : _formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>${hidePriceFields ? '' : _formatCurrencyWithDecimals(productUnitPrice)}</span></div>
                 <div class="table-row-total"><span>🧾 Total</span><span>${hidePriceFields ? '' : _formatCurrency(total)}</span></div>
                 <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
               </div>

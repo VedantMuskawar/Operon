@@ -25,30 +25,10 @@ String _formatDmDate(dynamic date) {
     } else {
       return '—';
     }
-    final now = DateTime.now();
-    final d = now.difference(dateTime);
-    if (d.inDays == 0) {
-      final h = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
-      final m = dateTime.minute.toString().padLeft(2, '0');
-      final p = dateTime.hour >= 12 ? 'PM' : 'AM';
-      return '$h:$m $p';
-    }
-    if (d.inDays == 1) {
-      final h = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
-      final m = dateTime.minute.toString().padLeft(2, '0');
-      final p = dateTime.hour >= 12 ? 'PM' : 'AM';
-      return 'Yesterday, $h:$m $p';
-    }
-    if (d.inDays < 7) {
-      const w = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      final day = w[dateTime.weekday - 1];
-      final h = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
-      final m = dateTime.minute.toString().padLeft(2, '0');
-      final p = dateTime.hour >= 12 ? 'PM' : 'AM';
-      return '$day, $h:$m $p';
-    }
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year}';
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final year = (dateTime.year % 100).toString().padLeft(2, '0');
+    return '$day/$month/$year';
   } catch (_) {
     return '—';
   }
@@ -180,6 +160,8 @@ class _DeliveryMemosViewState extends State<DeliveryMemosView> {
               _buildToolbar(),
               const SizedBox(height: 20),
               _buildContent(),
+              const SizedBox(height: 12),
+              _buildPagination(),
             ],
           ),
         ),
@@ -213,7 +195,7 @@ class _DeliveryMemosViewState extends State<DeliveryMemosView> {
                       if (count) ...[
                         const SizedBox(width: 12),
                         Text(
-                          '${state.filteredDeliveryMemos.length} memos',
+                                  '${state.filteredDeliveryMemos.length} memos (page ${state.currentPage})',
                           style: const TextStyle(
                             color: AuthColors.textSub,
                             fontSize: 13,
@@ -240,7 +222,7 @@ class _DeliveryMemosViewState extends State<DeliveryMemosView> {
                 const Spacer(),
                 if (count)
                   Text(
-                    '${state.filteredDeliveryMemos.length} memos',
+                    '${state.filteredDeliveryMemos.length} memos (page ${state.currentPage})',
                     style: const TextStyle(
                       color: AuthColors.textSub,
                       fontSize: 13,
@@ -364,6 +346,62 @@ class _DeliveryMemosViewState extends State<DeliveryMemosView> {
                 onTap: (dm, _) => _openPrintDialog(context, dm),
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPagination() {
+    return BlocBuilder<DeliveryMemosCubit, DeliveryMemosState>(
+      builder: (context, state) {
+        final isSearching = state.searchQuery.trim().isNotEmpty;
+        final disabled = state.status == ViewStatus.loading;
+
+        return Center(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isSearching
+                      ? 'Search mode (pagination disabled)'
+                      : 'Page size: ${state.pageSize}',
+                  style: const TextStyle(
+                    color: AuthColors.textSub,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                DashButton(
+                  label: 'Previous',
+                  icon: Icons.chevron_left,
+                  variant: DashButtonVariant.outlined,
+                  onPressed: (!isSearching && state.hasPreviousPage && !disabled)
+                      ? () => context.read<DeliveryMemosCubit>().previousPage()
+                      : null,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Page ${state.currentPage}',
+                  style: const TextStyle(
+                    color: AuthColors.textMain,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                DashButton(
+                  label: 'Next',
+                  icon: Icons.chevron_right,
+                  variant: DashButtonVariant.outlined,
+                  onPressed: (!isSearching && state.hasNextPage && !disabled)
+                      ? () => context.read<DeliveryMemosCubit>().nextPage()
+                      : null,
+                ),
+              ],
+            ),
           ),
         );
       },

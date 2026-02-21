@@ -132,7 +132,7 @@ class VendorsCubit extends Cubit<VendorsState> {
 
     if (state.selectedVendorType != null) {
       filtered = filtered
-          .where((v) => v.vendorType == state.selectedVendorType)
+          .where((v) => v.hasVendorType(state.selectedVendorType!))
           .toList();
     }
 

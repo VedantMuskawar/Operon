@@ -1,4 +1,5 @@
 import 'delivery_memo_data_source.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DeliveryMemoRepository {
   DeliveryMemoRepository({DeliveryMemoDataSource? dataSource})
@@ -74,6 +75,25 @@ class DeliveryMemoRepository {
     );
   }
 
+  /// Fetch one page of delivery memos using Firestore cursor pagination.
+  Future<DeliveryMemosPageResult> fetchDeliveryMemosPage({
+    required String organizationId,
+    String? status,
+    DateTime? startDate,
+    DateTime? endDate,
+    int limit = 20,
+    DocumentSnapshot<Map<String, dynamic>>? startAfterDocument,
+  }) {
+    return _dataSource.fetchDeliveryMemosPage(
+      organizationId: organizationId,
+      status: status,
+      startDate: startDate,
+      endDate: endDate,
+      limit: limit,
+      startAfterDocument: startAfterDocument,
+    );
+  }
+
   /// Watch delivery memos for a specific client
   Stream<List<Map<String, dynamic>>> watchDeliveryMemosByClientId({
     required String organizationId,
@@ -104,14 +124,16 @@ class DeliveryMemoRepository {
     );
   }
 
-  /// Get returned delivery memos for a specific vehicle from past 3 days
+  /// Get returned delivery memos for a specific vehicle around a reference voucher date.
   Future<List<Map<String, dynamic>>> getReturnedDMsForVehicle({
     required String organizationId,
     required String vehicleNumber,
+    DateTime? voucherDate,
   }) {
     return _dataSource.getReturnedDMsForVehicle(
       organizationId: organizationId,
       vehicleNumber: vehicleNumber,
+      voucherDate: voucherDate,
     );
   }
 

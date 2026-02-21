@@ -27,6 +27,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   String? _currentOrgId;
   List<Vehicle> _vehicles = [];
   final Set<String> _selectedVehicleIds = {};
+  bool _isSelfTransportFilterSelected = false;
   String? _vehiclesOrgId;
   int _totalTrips = 0;
   double _totalValue = 0.0;
@@ -171,6 +172,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     setState(() {
       if (vehicleId == null) {
         _selectedVehicleIds.clear();
+        _isSelfTransportFilterSelected = false;
       } else if (_selectedVehicleIds.contains(vehicleId)) {
         _selectedVehicleIds.remove(vehicleId);
       } else {
@@ -185,12 +187,46 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     });
   }
 
+  void _onSelfTransportFilterChanged() {
+    setState(() {
+      _isSelfTransportFilterSelected = !_isSelfTransportFilterSelected;
+      _scheduledTrips = _applyFilters(_allTripsForDate);
+      final summary = _buildSummary(_scheduledTrips);
+      _totalTrips = summary.totalTrips;
+      _totalValue = summary.totalValue;
+      _totalQuantity = summary.totalQuantity;
+      _totalVehicles = summary.totalVehicles;
+    });
+  }
+
+  bool _isSelfTransportTrip(Map<String, dynamic> trip) {
+    final transportMode = (trip['transportMode'] as String?)?.toLowerCase().trim();
+    if (transportMode == 'self') return true;
+
+    final vehicleId = (trip['vehicleId'] as String?)?.toUpperCase().trim();
+    if (vehicleId == 'SELF_TRANSPORT') return true;
+
+    final vehicleNumber = (trip['vehicleNumber'] as String?)?.toLowerCase().trim();
+    if (vehicleNumber == 'self transport' || vehicleNumber == 'client vehicle') {
+      return true;
+    }
+
+    return false;
+  }
+
   List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> trips) {
     var filtered = trips;
-    if (_selectedVehicleIds.isNotEmpty) {
+    final hasVehicleFilter = _selectedVehicleIds.isNotEmpty;
+    final hasSelfTransportFilter = _isSelfTransportFilterSelected;
+
+    if (hasVehicleFilter || hasSelfTransportFilter) {
       filtered = filtered.where((trip) {
         final vehicleId = trip['vehicleId'] as String?;
-        return vehicleId != null && _selectedVehicleIds.contains(vehicleId);
+        final matchesVehicle =
+            vehicleId != null && _selectedVehicleIds.contains(vehicleId);
+        final matchesSelfTransport =
+            hasSelfTransportFilter && _isSelfTransportTrip(trip);
+        return matchesVehicle || matchesSelfTransport;
       }).toList();
     }
 
@@ -561,8 +597,16 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                           padding: const EdgeInsets.only(right: 8),
                           child: _VehicleFilterButton(
                             label: 'All',
-                            isSelected: _selectedVehicleIds.isEmpty,
+                            isSelected: _selectedVehicleIds.isEmpty && !_isSelfTransportFilterSelected,
                             onTap: () => _onVehicleFilterChanged(null),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _VehicleFilterButton(
+                            label: 'Client Vehicle / Self Transport',
+                            isSelected: _isSelfTransportFilterSelected,
+                            onTap: _onSelfTransportFilterChanged,
                           ),
                         ),
                         ...filteredVehicles.map(
@@ -608,7 +652,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  const crossAxisCount = 5;
+                  const crossAxisCount = 4;
                   const crossAxisSpacing = 20.0;
                   const mainAxisSpacing = 20.0;
                   final contentWidth = constraints.maxWidth;

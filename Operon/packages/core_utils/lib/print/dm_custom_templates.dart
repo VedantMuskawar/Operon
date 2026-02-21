@@ -960,7 +960,7 @@ pw.Widget _buildLakshmeeProductTable(
         ),
         _buildLakshmeeTableRow(
           'Unit Price',
-          hidePriceFields ? '' : 'Rs ${_formatCurrency(first.unitPrice)}',
+          hidePriceFields ? '' : 'Rs ${_formatCurrencyWithDecimals(first.unitPrice)}',
           isTotal: false,
           theme: theme,
         ),
@@ -1146,6 +1146,14 @@ pw.Widget _buildLakshmeeTableRow(
 String _formatCurrency(double amount) {
   return amount.toStringAsFixed(0).replaceAllMapped(
     RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+    (Match m) => '${m[1]},',
+  );
+}
+
+/// Format currency with fixed 2 decimal places (for Unit Price display)
+String _formatCurrencyWithDecimals(double amount) {
+  return amount.toStringAsFixed(2).replaceAllMapped(
+    RegExp(r'(\d)(?=(\d{3})+\.)'),
     (Match m) => '${m[1]},',
   );
 }

@@ -23,7 +23,7 @@ void showDmSettingsDialog(BuildContext context) {
 
   showDialog(
     context: context,
-      barrierColor: AuthColors.background.withValues(alpha: 0.7),
+    barrierColor: AuthColors.background.withValues(alpha: 0.7),
     builder: (dialogContext) => BlocProvider(
       create: (_) => DmSettingsCubit(
         repository: dmSettingsRepository,
@@ -122,10 +122,13 @@ class _DmSettingsDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(24),
                 child: BlocListener<DmSettingsCubit, DmSettingsState>(
                   listener: (context, state) {
-                    if (state.status == ViewStatus.failure && state.message != null) {
-                      DashSnackbar.show(context, message: state.message!, isError: true);
+                    if (state.status == ViewStatus.failure &&
+                        state.message != null) {
+                      DashSnackbar.show(context,
+                          message: state.message!, isError: true);
                     }
-                    if (state.status == ViewStatus.success && state.message != null) {
+                    if (state.status == ViewStatus.success &&
+                        state.message != null) {
                       DashSnackbar.show(context, message: state.message!);
                     }
                   },
@@ -218,7 +221,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
       _printOrientation = settings.printOrientation;
       _paymentDisplay = settings.paymentDisplay;
       _templateType = settings.templateType;
-      _selectedCustomTemplateId = _normalizeTemplateId(settings.customTemplateId);
+      _selectedCustomTemplateId =
+          _normalizeTemplateId(settings.customTemplateId);
       _settingsLoaded = true;
     });
   }
@@ -270,10 +274,10 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
     setState(() => _isUploadingLogo = true);
     try {
       final cubit = context.read<DmSettingsCubit>();
-      
+
       // Detect file extension from bytes (check magic numbers)
       String extension = 'png'; // Default
-      
+
       // Check for PNG signature: 89 50 4E 47 0D 0A 1A 0A
       if (_selectedLogoBytes!.length >= 8) {
         if (_selectedLogoBytes![0] == 0x89 &&
@@ -284,18 +288,18 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
         }
         // Check for JPEG signature: FF D8 FF
         else if (_selectedLogoBytes![0] == 0xFF &&
-                 _selectedLogoBytes![1] == 0xD8 &&
-                 _selectedLogoBytes![2] == 0xFF) {
+            _selectedLogoBytes![1] == 0xD8 &&
+            _selectedLogoBytes![2] == 0xFF) {
           // Check if it's JPEG or JFIF
           if (_selectedLogoBytes!.length >= 4 &&
               (_selectedLogoBytes![3] == 0xE0 || // JFIF
-               _selectedLogoBytes![3] == 0xE1 || // EXIF
-               _selectedLogoBytes![3] == 0xDB)) {
+                  _selectedLogoBytes![3] == 0xE1 || // EXIF
+                  _selectedLogoBytes![3] == 0xDB)) {
             extension = 'jpg';
           }
         }
       }
-      
+
       final logoUrl = await cubit.uploadLogo(_selectedLogoBytes!, extension);
       if (mounted) {
         setState(() {
@@ -325,7 +329,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: const Text('Remove Logo', style: TextStyle(color: AuthColors.textMain)),
+        title: const Text('Remove Logo',
+            style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to remove the logo?',
           style: TextStyle(color: AuthColors.textSub),
@@ -406,7 +411,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
   Widget build(BuildContext context) {
     final cubit = context.watch<DmSettingsCubit>();
     final state = cubit.state;
-    
+
     // Load settings when they become available (defer setState to avoid calling it in build)
     if (state.settings != null && !_settingsLoaded) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -415,8 +420,9 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
         }
       });
     }
-    
-    final isLoading = state.status == ViewStatus.loading && state.settings == null;
+
+    final isLoading =
+        state.status == ViewStatus.loading && state.settings == null;
 
     if (isLoading) {
       return const Center(
@@ -437,7 +443,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             color: AuthColors.surface,
-            border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.12)),
+            border:
+                Border.all(color: AuthColors.textMain.withValues(alpha: 0.12)),
           ),
           child: const Text(
             'Configure header, footer, and print preferences for Delivery Memos (DM).',
@@ -537,7 +544,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                           child: _PrintOption(
                             label: 'Universal',
                             icon: Icons.style,
-                            isSelected: _templateType == DmTemplateType.universal,
+                            isSelected:
+                                _templateType == DmTemplateType.universal,
                             onTap: () {
                               setState(() {
                                 _templateType = DmTemplateType.universal;
@@ -563,7 +571,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                     if (_templateType == DmTemplateType.custom) ...[
                       const SizedBox(height: 24),
                       DropdownButtonFormField<String>(
-                        value: _selectedCustomTemplateId,
+                        initialValue: _selectedCustomTemplateId,
                         decoration: _inputDecoration('Custom Template *'),
                         dropdownColor: AuthColors.surface,
                         style: const TextStyle(color: AuthColors.textMain),
@@ -574,7 +582,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                                 value: id,
                                 child: Text(
                                   '$id${id == 'LIT2' ? ' (Blank Unit Price + Total)' : ''}',
-                                  style: const TextStyle(color: AuthColors.textMain),
+                                  style: const TextStyle(
+                                      color: AuthColors.textMain),
                                 ),
                               ),
                             )
@@ -621,7 +630,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                           child: _PrintOption(
                             label: 'Portrait',
                             icon: Icons.portrait,
-                            isSelected: _printOrientation == DmPrintOrientation.portrait,
+                            isSelected: _printOrientation ==
+                                DmPrintOrientation.portrait,
                             onTap: () {
                               setState(() {
                                 _printOrientation = DmPrintOrientation.portrait;
@@ -634,10 +644,12 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                           child: _PrintOption(
                             label: 'Landscape',
                             icon: Icons.landscape,
-                            isSelected: _printOrientation == DmPrintOrientation.landscape,
+                            isSelected: _printOrientation ==
+                                DmPrintOrientation.landscape,
                             onTap: () {
                               setState(() {
-                                _printOrientation = DmPrintOrientation.landscape;
+                                _printOrientation =
+                                    DmPrintOrientation.landscape;
                               });
                             },
                           ),
@@ -661,7 +673,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                           child: _PrintOption(
                             label: 'QR Code',
                             icon: Icons.qr_code,
-                            isSelected: _paymentDisplay == DmPaymentDisplay.qrCode,
+                            isSelected:
+                                _paymentDisplay == DmPaymentDisplay.qrCode,
                             onTap: () {
                               setState(() {
                                 _paymentDisplay = DmPaymentDisplay.qrCode;
@@ -674,7 +687,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                           child: _PrintOption(
                             label: 'Bank Details',
                             icon: Icons.account_balance,
-                            isSelected: _paymentDisplay == DmPaymentDisplay.bankDetails,
+                            isSelected:
+                                _paymentDisplay == DmPaymentDisplay.bankDetails,
                             onTap: () {
                               setState(() {
                                 _paymentDisplay = DmPaymentDisplay.bankDetails;
@@ -693,9 +707,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                 width: double.infinity,
                 child: DashButton(
                   label: 'Save Settings',
-                  onPressed: state.status == ViewStatus.loading
-                      ? null
-                      : _saveSettings,
+                  onPressed:
+                      state.status == ViewStatus.loading ? null : _saveSettings,
                 ),
               ),
             ],
@@ -753,7 +766,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
               decoration: BoxDecoration(
                 color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.1)),
+                border: Border.all(
+                    color: AuthColors.textMain.withValues(alpha: 0.1)),
               ),
               child: _logoImageUrl != null
                   ? ClipRRect(
@@ -769,7 +783,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                             child: Icon(Icons.image, color: AuthColors.textSub),
                           );
                         },
-                        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                        frameBuilder:
+                            (context, child, frame, wasSynchronouslyLoaded) {
                           if (wasSynchronouslyLoaded) {
                             return child;
                           }
@@ -794,7 +809,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                           builder: (context, snapshot) {
                             if (snapshot.hasError) {
                               return const Center(
-                                child: Icon(Icons.error_outline, color: Colors.white54),
+                                child: Icon(Icons.error_outline,
+                                    color: Colors.white54),
                               );
                             }
                             if (!snapshot.hasData) {
@@ -818,10 +834,12 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                                 cacheHeight: 400,
                                 errorBuilder: (context, error, stackTrace) {
                                   return const Center(
-                                    child: Icon(Icons.error_outline, color: Colors.white54),
+                                    child: Icon(Icons.error_outline,
+                                        color: Colors.white54),
                                   );
                                 },
-                                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                                frameBuilder: (context, child, frame,
+                                    wasSynchronouslyLoaded) {
                                   if (wasSynchronouslyLoaded) {
                                     return child;
                                   }
@@ -855,9 +873,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                     SizedBox(
                       width: double.infinity,
                       child: DashButton(
-                        label: _isUploadingLogo
-                            ? 'Uploading...'
-                            : 'Upload Logo',
+                        label:
+                            _isUploadingLogo ? 'Uploading...' : 'Upload Logo',
                         onPressed: _isUploadingLogo ? null : _uploadLogo,
                       ),
                     ),

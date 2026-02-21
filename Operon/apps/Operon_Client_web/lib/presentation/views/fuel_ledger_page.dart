@@ -38,7 +38,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
   
   // Pagination state
   int _currentPage = 0;
-  final int _itemsPerPage = 10;
+  final int _itemsPerPage = 20;
   
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _purchasesSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _vendorsSubscription;
@@ -319,6 +319,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
         transactionId: purchase.id,
         vehicleNumber: vehicleNumber,
         voucherNumber: metadata['voucherNumber'] as String? ?? '',
+        voucherDate: purchase.transactionDate ?? purchase.createdAt ?? DateTime.now(),
         onTripsLinked: () {
           // Streams will auto-update, no manual refresh needed
         },

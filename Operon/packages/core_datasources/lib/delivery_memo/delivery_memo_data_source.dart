@@ -20,6 +20,19 @@ class DeliveryMemoDataSource {
   static const String _scheduleTripsCollection = 'SCHEDULE_TRIPS';
   static const String _deliveryMemosCollection = 'DELIVERY_MEMOS';
 
+  /// Cursor-based page result for Delivery Memo listing.
+  ///
+  /// [lastDocument] should be used as the cursor for the next page.
+  /// [hasMore] indicates whether additional pages are available.
+  ///
+  /// Note: This class intentionally carries Firestore document snapshots so
+  /// consumers can perform reliable pagination using `startAfterDocument`.
+  static DeliveryMemosPageResult emptyPage() => const DeliveryMemosPageResult(
+        memos: [],
+        lastDocument: null,
+        hasMore: false,
+      );
+
   /// Get a single delivery memo by ID (document ID or dmId)
   Future<Map<String, dynamic>?> getDeliveryMemo(String dmId) async {
     try {
@@ -31,6 +44,81 @@ class DeliveryMemoDataSource {
       return {...?doc.data(), 'dmId': doc.id};
     } catch (e) {
       throw Exception('Failed to get delivery memo: $e');
+    }
+  }
+
+  /// Fetch a single page of delivery memos with Firestore cursor pagination.
+  ///
+  /// Uses the same filter semantics as [watchDeliveryMemos], but returns a
+  /// one-time page instead of a stream.
+  Future<DeliveryMemosPageResult> fetchDeliveryMemosPage({
+    required String organizationId,
+    String? status,
+    DateTime? startDate,
+    DateTime? endDate,
+    int limit = 20,
+    DocumentSnapshot<Map<String, dynamic>>? startAfterDocument,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = _firestore
+          .collection(_deliveryMemosCollection)
+          .where('organizationId', isEqualTo: organizationId);
+
+      if (status != null) {
+        query = query.where('status', isEqualTo: status);
+      }
+
+      if (startDate != null) {
+        final startTimestamp = Timestamp.fromDate(startDate);
+        query = query.where('scheduledDate', isGreaterThanOrEqualTo: startTimestamp);
+      }
+      if (endDate != null) {
+        final endTimestamp = Timestamp.fromDate(endDate.add(const Duration(days: 1)));
+        query = query.where('scheduledDate', isLessThan: endTimestamp);
+      }
+
+      final hasDateFilter = startDate != null || endDate != null;
+      final useDmNumberOrdering = !hasDateFilter && status == null;
+
+      if (useDmNumberOrdering) {
+        query = query.orderBy('dmNumber', descending: true);
+      } else {
+        query = query.orderBy('scheduledDate', descending: true);
+      }
+
+      if (startAfterDocument != null) {
+        query = query.startAfterDocument(startAfterDocument);
+      }
+
+      final cappedLimit = limit <= 0 ? 20 : limit;
+      final snapshot = await query.limit(cappedLimit + 1).get();
+
+      final hasMore = snapshot.docs.length > cappedLimit;
+      final pageDocs = hasMore ? snapshot.docs.take(cappedLimit).toList() : snapshot.docs;
+
+      final memos = pageDocs.map((doc) {
+        final data = doc.data();
+        return <String, dynamic>{
+          ...data,
+          'dmId': doc.id,
+        };
+      }).toList();
+
+      if (!useDmNumberOrdering) {
+        memos.sort((a, b) {
+          final dmNumberA = a['dmNumber'] as int? ?? 0;
+          final dmNumberB = b['dmNumber'] as int? ?? 0;
+          return dmNumberB.compareTo(dmNumberA);
+        });
+      }
+
+      return DeliveryMemosPageResult(
+        memos: memos,
+        lastDocument: pageDocs.isNotEmpty ? pageDocs.last : null,
+        hasMore: hasMore,
+      );
+    } catch (e) {
+      throw Exception('Failed to fetch delivery memos page: $e');
     }
   }
 
@@ -370,28 +458,40 @@ class DeliveryMemoDataSource {
     }
   }
 
-  /// Get returned delivery memos for a specific vehicle from past 3 days
+  /// Get returned delivery memos for a specific vehicle around voucher date.
   /// Used for fuel voucher trip linking (optional)
   Future<List<Map<String, dynamic>>> getReturnedDMsForVehicle({
     required String organizationId,
     required String vehicleNumber,
+    DateTime? voucherDate,
   }) async {
     try {
-      // Get date 3 days ago for filtering
-      final threeDaysAgo = DateTime.now().subtract(const Duration(days: 3));
-      final threeDaysAgoTimestamp = Timestamp.fromDate(threeDaysAgo);
+      // Anchor filtering window to voucher date if provided, else current date.
+      final anchorDate = voucherDate ?? DateTime.now();
+      final windowStart = DateTime(
+        anchorDate.year,
+        anchorDate.month,
+        anchorDate.day,
+      ).subtract(const Duration(days: 3));
+      final windowEndExclusive = DateTime(
+        anchorDate.year,
+        anchorDate.month,
+        anchorDate.day,
+      ).add(const Duration(days: 1));
+      final windowStartTimestamp = Timestamp.fromDate(windowStart);
+      final windowEndExclusiveTimestamp = Timestamp.fromDate(windowEndExclusive);
 
-      // Simplified query: Only use organizationId, status, and vehicleNumber
-      // Filter by date in memory to avoid index requirement
+      // Simplified query: only constrain by organization and vehicle.
+      // Filter return-state and date in memory to avoid brittle index coupling.
       Query<Map<String, dynamic>> query = _firestore
           .collection(_deliveryMemosCollection)
           .where('organizationId', isEqualTo: organizationId)
-          .where('status', isEqualTo: 'returned')
           .where('vehicleNumber', isEqualTo: vehicleNumber);
 
       final snapshot = await query.get();
 
-      // Map documents to data and filter by date in memory
+      // Map documents and filter by return-state + date in memory.
+      // Some flows update `tripStatus` to returned while `status` may remain active.
       final results = snapshot.docs.map((doc) {
         final data = doc.data();
         return <String, dynamic>{
@@ -399,7 +499,12 @@ class DeliveryMemoDataSource {
           'dmId': doc.id,
         };
       }).where((item) {
-        // Filter by date in memory (last 3 days)
+        final tripStatus = (item['tripStatus'] as String?)?.toLowerCase();
+        final dmStatus = (item['status'] as String?)?.toLowerCase();
+        final isReturned = tripStatus == 'returned' || dmStatus == 'returned';
+        if (!isReturned) return false;
+
+        // Filter by date in memory (voucher date window)
         final scheduledDate = item['scheduledDate'];
         if (scheduledDate == null) return false;
         
@@ -408,11 +513,14 @@ class DeliveryMemoDataSource {
           ts = scheduledDate;
         } else if (scheduledDate is DateTime) {
           ts = Timestamp.fromDate(scheduledDate);
+        } else if (scheduledDate is Map && scheduledDate['_seconds'] is int) {
+          ts = Timestamp(scheduledDate['_seconds'] as int, 0);
         } else {
           return false;
         }
         
-        return ts.compareTo(threeDaysAgoTimestamp) >= 0;
+        return ts.compareTo(windowStartTimestamp) >= 0 &&
+            ts.compareTo(windowEndExclusiveTimestamp) < 0;
       }).toList();
 
       // Sort in memory by scheduledDate (descending - newest first)
@@ -487,5 +595,17 @@ class DeliveryMemoDataSource {
       throw Exception('Failed to update delivery memo with fuel voucher: $e');
     }
   }
+}
+
+class DeliveryMemosPageResult {
+  const DeliveryMemosPageResult({
+    required this.memos,
+    required this.lastDocument,
+    required this.hasMore,
+  });
+
+  final List<Map<String, dynamic>> memos;
+  final DocumentSnapshot<Map<String, dynamic>>? lastDocument;
+  final bool hasMore;
 }
 

@@ -94,12 +94,24 @@ class _VendorsPageState extends State<VendorsPage> {
     context.read<VendorsCubit>().search('');
   }
 
+  void _showVendorDialog(BuildContext context, Vendor? vendor) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => _VendorDialog(vendor: vendor),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AuthColors.background,
       appBar: const ModernPageHeader(
         title: 'Vendors',
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showVendorDialog(context, null),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Vendor'),
       ),
       body: SafeArea(
         child: BlocListener<VendorsCubit, VendorsState>(
@@ -126,6 +138,8 @@ class _VendorsPageState extends State<VendorsPage> {
                             searchController: _searchController,
                             searchQuery: _searchQuery,
                             onClearSearch: _clearSearch,
+                            onEditVendor: (vendor) =>
+                                _showVendorDialog(context, vendor),
                           ),
                           const VendorAnalyticsPage(),
                         ],
@@ -186,6 +200,7 @@ class _VendorsListView extends StatelessWidget {
     required this.searchController,
     required this.searchQuery,
     required this.onClearSearch,
+    required this.onEditVendor,
   });
 
   final ScrollController scrollController;
@@ -193,6 +208,7 @@ class _VendorsListView extends StatelessWidget {
   final TextEditingController searchController;
   final String searchQuery;
   final VoidCallback onClearSearch;
+  final ValueChanged<Vendor> onEditVendor;
 
   @override
   Widget build(BuildContext context) {
@@ -308,6 +324,7 @@ class _VendorsListView extends StatelessWidget {
                               curve: Curves.easeOut,
                               child: _VendorTile(
                                 vendor: filteredVendors[index],
+                                onEdit: () => onEditVendor(filteredVendors[index]),
                                 onDelete: () => context.read<VendorsCubit>().deleteVendor(filteredVendors[index].id),
                               ),
                             ),
@@ -481,14 +498,16 @@ class _SearchResultsCard extends StatelessWidget {
 class _VendorTile extends StatelessWidget {
   const _VendorTile({
     required this.vendor,
+    this.onEdit,
     this.onDelete,
   });
 
   final Vendor vendor;
+  final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
   Color _getVendorColor() {
-    final hash = vendor.vendorType.name.hashCode;
+    final hash = vendor.primaryVendorType.name.hashCode;
     final colors = [
       AuthColors.primary,
       AuthColors.success,
@@ -500,11 +519,17 @@ class _VendorTile extends StatelessWidget {
     return colors[hash.abs() % colors.length];
   }
 
-  String _formatVendorType() {
-    return vendor.vendorType.name
-        .split(RegExp(r'(?=[A-Z])'))
-        .map((word) => word[0].toUpperCase() + word.substring(1))
-        .join(' ');
+  String _formatVendorTypes() {
+    final formatted = vendor.effectiveVendorTypes
+        .map((type) => type.name
+            .split(RegExp(r'(?=[A-Z])'))
+            .map((word) => word[0].toUpperCase() + word.substring(1))
+            .join(' '))
+        .toList();
+    if (formatted.length <= 2) {
+      return formatted.join(', ');
+    }
+    return '${formatted.take(2).join(', ')} +${formatted.length - 2}';
   }
 
   String _getVendorTypeInitials(VendorType type) {
@@ -526,7 +551,7 @@ class _VendorTile extends StatelessWidget {
     final balanceDifference = vendor.currentBalance - vendor.openingBalance;
     final isPositive = balanceDifference >= 0;
     final subtitleParts = <String>[];
-    subtitleParts.add(_formatVendorType());
+    subtitleParts.add(_formatVendorTypes());
     subtitleParts.add(vendor.phoneNumber);
     final subtitle = subtitleParts.join(' • ');
 
@@ -540,7 +565,7 @@ class _VendorTile extends StatelessWidget {
         title: vendor.name,
         subtitle: subtitle,
         leading: DataListAvatar(
-          initial: _getVendorTypeInitials(vendor.vendorType),
+          initial: _getVendorTypeInitials(vendor.primaryVendorType),
           radius: 28,
           statusRingColor: vendorColor,
         ),
@@ -587,6 +612,14 @@ class _VendorTile extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+            if (onEdit != null) ...[
+              const SizedBox(width: AppSpacing.paddingSM),
+              IconButton(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                tooltip: 'Edit Vendor',
+              ),
+            ],
           ],
         ),
         onTap: () => context.pushNamed('vendor-detail', extra: vendor),
@@ -786,6 +819,268 @@ class _CompactPageIndicator extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _VendorDialog extends StatefulWidget {
+  const _VendorDialog({this.vendor});
+
+  final Vendor? vendor;
+
+  @override
+  State<_VendorDialog> createState() => _VendorDialogState();
+}
+
+class _VendorDialogState extends State<_VendorDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _gstController;
+  late final TextEditingController _openingBalanceController;
+
+  late Set<VendorType> _selectedTypes;
+  late VendorStatus _selectedStatus;
+
+  bool get _isEditing => widget.vendor != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final vendor = widget.vendor;
+    _nameController = TextEditingController(text: vendor?.name ?? '');
+    _phoneController = TextEditingController(text: vendor?.phoneNumber ?? '');
+    _gstController = TextEditingController(text: vendor?.gstNumber ?? '');
+    _openingBalanceController = TextEditingController(
+      text: vendor != null ? vendor.openingBalance.toStringAsFixed(2) : '0.00',
+    );
+    _selectedTypes = vendor != null
+        ? vendor.effectiveVendorTypes.toSet()
+        : <VendorType>{VendorType.other};
+    _selectedStatus = vendor?.status ?? VendorStatus.active;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _gstController.dispose();
+    _openingBalanceController.dispose();
+    super.dispose();
+  }
+
+  String _formatVendorType(VendorType type) {
+    return type.name
+        .split(RegExp(r'(?=[A-Z])'))
+        .map((word) => word[0].toUpperCase() + word.substring(1))
+        .join(' ');
+  }
+
+  Future<void> _saveVendor() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    final cubit = context.read<VendorsCubit>();
+    final selectedTypes = _selectedTypes.toList(growable: false);
+    final primaryType = selectedTypes.isNotEmpty
+        ? selectedTypes.first
+        : VendorType.other;
+
+    final openingBalance = widget.vendor?.openingBalance ??
+        double.parse(_openingBalanceController.text.trim());
+    final currentBalance = widget.vendor?.currentBalance ?? openingBalance;
+
+    final vendor = Vendor(
+      id: widget.vendor?.id ?? '',
+      vendorCode: widget.vendor?.vendorCode ?? '',
+      name: _nameController.text.trim(),
+      nameLowercase: _nameController.text.trim().toLowerCase(),
+      phoneNumber: _phoneController.text.trim(),
+      phoneNumberNormalized: _phoneController.text.trim(),
+      phones: widget.vendor?.phones ?? const [],
+      phoneIndex: widget.vendor?.phoneIndex ?? const [],
+      openingBalance: openingBalance,
+      currentBalance: currentBalance,
+      vendorType: primaryType,
+      vendorTypes: selectedTypes,
+      status: _selectedStatus,
+      organizationId: widget.vendor?.organizationId ?? cubit.organizationId,
+      gstNumber: _gstController.text.trim().isEmpty
+          ? null
+          : _gstController.text.trim(),
+      rawMaterialDetails: widget.vendor?.rawMaterialDetails,
+      vehicleDetails: widget.vendor?.vehicleDetails,
+      repairMaintenanceDetails: widget.vendor?.repairMaintenanceDetails,
+      welfareDetails: widget.vendor?.welfareDetails,
+      fuelDetails: widget.vendor?.fuelDetails,
+      utilitiesDetails: widget.vendor?.utilitiesDetails,
+      rentDetails: widget.vendor?.rentDetails,
+      professionalServicesDetails: widget.vendor?.professionalServicesDetails,
+      marketingAdvertisingDetails: widget.vendor?.marketingAdvertisingDetails,
+      insuranceDetails: widget.vendor?.insuranceDetails,
+      logisticsDetails: widget.vendor?.logisticsDetails,
+      officeSuppliesDetails: widget.vendor?.officeSuppliesDetails,
+      securityDetails: widget.vendor?.securityDetails,
+      cleaningDetails: widget.vendor?.cleaningDetails,
+      taxConsultantDetails: widget.vendor?.taxConsultantDetails,
+      bankingFinancialDetails: widget.vendor?.bankingFinancialDetails,
+      createdBy: widget.vendor?.createdBy,
+      createdAt: widget.vendor?.createdAt,
+      updatedBy: widget.vendor?.updatedBy,
+      updatedAt: widget.vendor?.updatedAt,
+      lastTransactionDate: widget.vendor?.lastTransactionDate,
+    );
+
+    if (_isEditing) {
+      await cubit.updateVendor(vendor);
+    } else {
+      await cubit.createVendor(vendor);
+    }
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: 480,
+        padding: const EdgeInsets.all(AppSpacing.paddingLG),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _isEditing ? 'Edit Vendor' : 'Add Vendor',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AuthColors.textMain,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.paddingLG),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Vendor Name'),
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Enter vendor name'
+                      : null,
+                ),
+                const SizedBox(height: AppSpacing.paddingMD),
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: 'Phone Number'),
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Enter phone number'
+                      : null,
+                ),
+                const SizedBox(height: AppSpacing.paddingMD),
+                const Text(
+                  'Vendor Types',
+                  style: TextStyle(
+                    color: AuthColors.textSub,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.paddingSM),
+                Wrap(
+                  spacing: AppSpacing.paddingSM,
+                  runSpacing: AppSpacing.paddingSM,
+                  children: VendorType.values.map((type) {
+                    final isSelected = _selectedTypes.contains(type);
+                    return FilterChip(
+                      selected: isSelected,
+                      label: Text(_formatVendorType(type)),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedTypes.add(type);
+                          } else {
+                            _selectedTypes.remove(type);
+                          }
+
+                          if (_selectedTypes.isEmpty) {
+                            _selectedTypes = {VendorType.other};
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: AppSpacing.paddingMD),
+                TextFormField(
+                  controller: _gstController,
+                  decoration:
+                      const InputDecoration(labelText: 'GST Number (Optional)'),
+                ),
+                const SizedBox(height: AppSpacing.paddingMD),
+                TextFormField(
+                  controller: _openingBalanceController,
+                  enabled: !_isEditing,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Opening Balance'),
+                  validator: (value) {
+                    if (_isEditing) {
+                      return null;
+                    }
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Enter opening balance';
+                    }
+                    if (double.tryParse(value.trim()) == null) {
+                      return 'Enter a valid number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppSpacing.paddingMD),
+                DropdownButtonFormField<VendorStatus>(
+                  initialValue: _selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: VendorStatus.values
+                      .map(
+                        (status) => DropdownMenuItem(
+                          value: status,
+                          child: Text(
+                            status.name[0].toUpperCase() + status.name.substring(1),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (status) {
+                    if (status != null) {
+                      setState(() => _selectedStatus = status);
+                    }
+                  },
+                ),
+                const SizedBox(height: AppSpacing.paddingLG),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: AppSpacing.paddingSM),
+                    FilledButton.icon(
+                      onPressed: _saveVendor,
+                      icon: Icon(_isEditing ? Icons.check : Icons.add),
+                      label: Text(_isEditing ? 'Save Changes' : 'Create Vendor'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

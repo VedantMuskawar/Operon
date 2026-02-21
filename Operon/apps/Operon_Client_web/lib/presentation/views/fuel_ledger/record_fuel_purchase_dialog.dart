@@ -224,6 +224,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                 transactionId: transactionId,
                 vehicleNumber: vehicleNumber,
                 voucherNumber: voucherNumber,
+                voucherDate: _selectedDate,
                 onTripsLinked: () {
                   widget.onPurchaseRecorded?.call();
                 },

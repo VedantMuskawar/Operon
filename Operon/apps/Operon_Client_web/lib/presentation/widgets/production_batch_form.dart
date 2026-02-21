@@ -1,6 +1,13 @@
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';
-import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashFormField, DashSnackbar, DashTheme;
+import 'package:core_ui/core_ui.dart'
+    show
+        AuthColors,
+        DashButton,
+        DashButtonVariant,
+        DashFormField,
+        DashSnackbar,
+        DashTheme;
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
 import 'package:dash_web/data/repositories/raw_materials_repository.dart';
@@ -131,13 +138,14 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
       final productsFuture = cachedProducts != null
           ? Future.value(cachedProducts)
           : widget.productsRepository.fetchProducts(widget.organizationId);
-        final settingsFuture = cachedSettings != null
+      final settingsFuture = cachedSettings != null
           ? Future.value(cachedSettings)
           : widget.wageSettingsRepository
               .fetchWageSettings(widget.organizationId);
-        final rawMaterialsFuture = cachedRawMaterials != null
+      final rawMaterialsFuture = cachedRawMaterials != null
           ? Future.value(cachedRawMaterials)
-          : widget.rawMaterialsRepository.fetchRawMaterials(widget.organizationId);
+          : widget.rawMaterialsRepository
+              .fetchRawMaterials(widget.organizationId);
 
       final results = await Future.wait([
         employeesFuture,
@@ -161,8 +169,9 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
         _employees = _filterProductionEmployees(employees);
         _products =
             products.where((p) => p.status == ProductStatus.active).toList();
-        _rawMaterials =
-            rawMaterials.where((m) => m.status == RawMaterialStatus.active).toList();
+        _rawMaterials = rawMaterials
+            .where((m) => m.status == RawMaterialStatus.active)
+            .toList();
         _wageSettings = settings;
         if (_selectedEmployeeIds.isNotEmpty) {
           final productionEmployeeIds = _employees.map((e) => e.id).toSet();
@@ -171,8 +180,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
         }
         if (_wageSettings != null && _wageSettings!.enabled) {
           final productionMethods = _wageSettings!.calculationMethods.values
-              .where((m) =>
-                  m.enabled && m.methodType == WageMethodType.production)
+              .where(
+                  (m) => m.enabled && m.methodType == WageMethodType.production)
               .toList();
           if (productionMethods.isNotEmpty && _selectedMethodId == null) {
             _selectedMethodId = productionMethods.first.methodId;
@@ -282,15 +291,18 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
     setState(() {
       _selectedTemplate = template;
       final productionEmployeeIds = _employees.map((e) => e.id).toSet();
-        _selectedEmployeeIds = Set<String>.from(template.employeeIds)
+      _selectedEmployeeIds = Set<String>.from(template.employeeIds)
           .intersection(productionEmployeeIds)
           .toSet();
       _useCustomEmployees = false;
-      
+
       // Pre-select the first production method if not already selected
-      if (_selectedMethodId == null && _wageSettings != null && _wageSettings!.enabled) {
+      if (_selectedMethodId == null &&
+          _wageSettings != null &&
+          _wageSettings!.enabled) {
         final productionMethods = _wageSettings!.calculationMethods.values
-            .where((m) => m.enabled && m.methodType == WageMethodType.production)
+            .where(
+                (m) => m.enabled && m.methodType == WageMethodType.production)
             .toList();
         if (productionMethods.isNotEmpty) {
           _selectedMethodId = productionMethods.first.methodId;
@@ -311,51 +323,57 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedMethodId == null) {
-      DashSnackbar.show(context, message: 'Please select a wage method', isError: true);
+      DashSnackbar.show(context,
+          message: 'Please select a wage method', isError: true);
       return;
     }
 
     if (_selectedEmployeeIds.isEmpty) {
-      DashSnackbar.show(context, message: 'Please select at least one employee', isError: true);
+      DashSnackbar.show(context,
+          message: 'Please select at least one employee', isError: true);
       return;
     }
 
     // Validate wage calculation can be performed
     if (_totalWages == null || _wagePerEmployee == null) {
-      DashSnackbar.show(context, message: 'Unable to calculate wages. Please check your inputs.', isError: true);
+      DashSnackbar.show(context,
+          message: 'Unable to calculate wages. Please check your inputs.',
+          isError: true);
       return;
     }
 
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      DashSnackbar.show(context, message: 'User not authenticated', isError: true);
+      DashSnackbar.show(context,
+          message: 'User not authenticated', isError: true);
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      final selectedEmployees = _employees
-          .where((e) => _selectedEmployeeIds.contains(e.id))
-          .toList();
+      final selectedEmployees =
+          _employees.where((e) => _selectedEmployeeIds.contains(e.id)).toList();
       final employeeNames = selectedEmployees.map((e) => e.name).toList();
-      final product = _products.firstWhereOrNull((p) => p.id == _selectedProductId);
+      final product =
+          _products.firstWhereOrNull((p) => p.id == _selectedProductId);
       final rawMaterialsUsed = _rawMaterials
           .where((m) => _selectedRawMaterialIds.contains(m.id))
           .map((material) {
-        final qtyText =
-            _rawMaterialController(material.id).text.trim();
-        final quantity = double.tryParse(qtyText) ?? 0;
-        if (quantity <= 0) {
-          return null;
-        }
-        return RawMaterialUsage(
-          materialId: material.id,
-          materialName: material.name,
-          quantity: quantity,
-          unitOfMeasurement: material.unitOfMeasurement,
-        );
-      }).whereType<RawMaterialUsage>().toList();
+            final qtyText = _rawMaterialController(material.id).text.trim();
+            final quantity = double.tryParse(qtyText) ?? 0;
+            if (quantity <= 0) {
+              return null;
+            }
+            return RawMaterialUsage(
+              materialId: material.id,
+              materialName: material.name,
+              quantity: quantity,
+              unitOfMeasurement: material.unitOfMeasurement,
+            );
+          })
+          .whereType<RawMaterialUsage>()
+          .toList();
 
       final now = DateTime.now();
       final cubit = context.read<ProductionBatchesCubit>();
@@ -390,7 +408,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
           totalBricksStacked: int.parse(_bricksStackedController.text),
           employeeIds: _selectedEmployeeIds.toList(),
           employeeNames: employeeNames,
-          status: ProductionBatchStatus.calculated, // Directly set to calculated
+          status:
+              ProductionBatchStatus.calculated, // Directly set to calculated
           createdBy: currentUser.uid,
           createdAt: now,
           updatedAt: now,
@@ -405,7 +424,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
         );
 
         final batchId = await cubit.createBatch(batch);
-        
+
         if (batchId.isEmpty) {
           throw Exception('Failed to create batch: batchId is empty');
         }
@@ -434,24 +453,25 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
 
   @override
   Widget build(BuildContext context) {
-    final productName = _products
-        .firstWhereOrNull((p) => p.id == _selectedProductId)
-        ?.name;
+    final productName =
+        _products.firstWhereOrNull((p) => p.id == _selectedProductId)?.name;
     final produced = int.tryParse(_bricksProducedController.text) ?? 0;
     final stacked = int.tryParse(_bricksStackedController.text) ?? 0;
     final rawMaterialsSummary = _rawMaterials
         .where((m) => _selectedRawMaterialIds.contains(m.id))
         .map((material) {
-      final qtyText = _rawMaterialController(material.id).text.trim();
-      final quantity = double.tryParse(qtyText) ?? 0;
-      if (quantity <= 0) return null;
-      return RawMaterialUsage(
-        materialId: material.id,
-        materialName: material.name,
-        quantity: quantity,
-        unitOfMeasurement: material.unitOfMeasurement,
-      );
-    }).whereType<RawMaterialUsage>().toList();
+          final qtyText = _rawMaterialController(material.id).text.trim();
+          final quantity = double.tryParse(qtyText) ?? 0;
+          if (quantity <= 0) return null;
+          return RawMaterialUsage(
+            materialId: material.id,
+            materialName: material.name,
+            quantity: quantity,
+            unitOfMeasurement: material.unitOfMeasurement,
+          );
+        })
+        .whereType<RawMaterialUsage>()
+        .toList();
 
     Widget buildSectionCard({
       required String title,
@@ -595,7 +615,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                 BorderRadius.circular(14),
                                             child: IgnorePointer(
                                               child: DashFormField(
-                                                controller: _batchDateController,
+                                                controller:
+                                                    _batchDateController,
                                                 label: 'Batch Date',
                                                 readOnly: true,
                                                 prefix: const Icon(
@@ -616,23 +637,28 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       initialValue: _selectedProductId,
                                       decoration: InputDecoration(
                                         labelText: 'Product (Optional)',
-                                        labelStyle:
-                                            const TextStyle(color: AuthColors.textSub),
+                                        labelStyle: const TextStyle(
+                                            color: AuthColors.textSub),
                                         filled: true,
                                         fillColor:
-                                            AuthColors.textMainWithOpacity(0.05),
+                                            AuthColors.textMainWithOpacity(
+                                                0.05),
                                         border: OutlineInputBorder(
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           borderSide: BorderSide(
-                                            color: AuthColors.textMainWithOpacity(0.2),
+                                            color:
+                                                AuthColors.textMainWithOpacity(
+                                                    0.2),
                                           ),
                                         ),
                                         enabledBorder: OutlineInputBorder(
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           borderSide: BorderSide(
-                                            color: AuthColors.textMainWithOpacity(0.2),
+                                            color:
+                                                AuthColors.textMainWithOpacity(
+                                                    0.2),
                                           ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
@@ -672,14 +698,16 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       children: [
                                         Expanded(
                                           child: DashFormField(
-                                            controller: _bricksProducedController,
+                                            controller:
+                                                _bricksProducedController,
                                             label: 'Bricks Produced (Y) *',
                                             keyboardType: TextInputType.number,
                                             style: const TextStyle(
                                               color: AuthColors.textMain,
                                             ),
                                             validator: (value) {
-                                              if (value == null || value.isEmpty) {
+                                              if (value == null ||
+                                                  value.isEmpty) {
                                                 return 'Please enter bricks produced';
                                               }
                                               if (int.tryParse(value) == null ||
@@ -688,20 +716,23 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                               }
                                               return null;
                                             },
-                                            onChanged: (_) => _updateWagePreview(),
+                                            onChanged: (_) =>
+                                                _updateWagePreview(),
                                           ),
                                         ),
                                         const SizedBox(width: 16),
                                         Expanded(
                                           child: DashFormField(
-                                            controller: _bricksStackedController,
+                                            controller:
+                                                _bricksStackedController,
                                             label: 'Bricks Stacked (Z) *',
                                             keyboardType: TextInputType.number,
                                             style: const TextStyle(
                                               color: AuthColors.textMain,
                                             ),
                                             validator: (value) {
-                                              if (value == null || value.isEmpty) {
+                                              if (value == null ||
+                                                  value.isEmpty) {
                                                 return 'Please enter bricks stacked';
                                               }
                                               if (int.tryParse(value) == null ||
@@ -710,7 +741,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                               }
                                               return null;
                                             },
-                                            onChanged: (_) => _updateWagePreview(),
+                                            onChanged: (_) =>
+                                                _updateWagePreview(),
                                           ),
                                         ),
                                       ],
@@ -731,7 +763,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                   .withValues(alpha: 0.08),
                                             ],
                                           ),
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
                                           border: Border.all(
                                             color: AuthColors.primary
                                                 .withValues(alpha: 0.35),
@@ -772,7 +805,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                 ],
                                               )
                                             else
-                                              Text(
+                                              const Text(
                                                 'Enter quantities and select employees to calculate wages.',
                                                 style: TextStyle(
                                                   color: AuthColors.textSub,
@@ -791,7 +824,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                 title: 'Raw Materials Used',
                                 icon: Icons.science_outlined,
                                 child: _rawMaterials.isEmpty
-                                    ? Text(
+                                    ? const Text(
                                         'No raw materials found for this organization.',
                                         style: TextStyle(
                                           color: AuthColors.textSub,
@@ -799,10 +832,11 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                         ),
                                       )
                                     : Container(
-                                        constraints:
-                                            const BoxConstraints(maxHeight: 130),
+                                        constraints: const BoxConstraints(
+                                            maxHeight: 130),
                                         decoration: BoxDecoration(
-                                          color: AuthColors.textMainWithOpacity(0.03),
+                                          color: AuthColors.textMainWithOpacity(
+                                              0.03),
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           border: Border.all(
@@ -819,12 +853,14 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                           separatorBuilder: (_, __) =>
                                               const SizedBox(height: 6),
                                           itemBuilder: (context, index) {
-                                            final material = _rawMaterials[index];
+                                            final material =
+                                                _rawMaterials[index];
                                             final isSelected =
                                                 _selectedRawMaterialIds
                                                     .contains(material.id);
                                             final qtyController =
-                                                _rawMaterialController(material.id);
+                                                _rawMaterialController(
+                                                    material.id);
                                             return Row(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.center,
@@ -838,26 +874,34 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                             .add(material.id);
                                                       } else {
                                                         _selectedRawMaterialIds
-                                                            .remove(material.id);
+                                                            .remove(
+                                                                material.id);
                                                         qtyController.text = '';
                                                       }
                                                     });
                                                   },
-                                                  activeColor: AuthColors.primary,
-                                                  checkColor: AuthColors.textMain,
+                                                  activeColor:
+                                                      AuthColors.primary,
+                                                  checkColor:
+                                                      AuthColors.textMain,
                                                   materialTapTargetSize:
-                                                      MaterialTapTargetSize.shrinkWrap,
-                                                  visualDensity: VisualDensity.compact,
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  visualDensity:
+                                                      VisualDensity.compact,
                                                 ),
                                                 Expanded(
                                                   child: Text(
                                                     material.name,
                                                     style: const TextStyle(
-                                                      color: AuthColors.textMain,
-                                                      fontWeight: FontWeight.w600,
+                                                      color:
+                                                          AuthColors.textMain,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       fontSize: 12,
                                                     ),
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 if (material.unitOfMeasurement
@@ -867,7 +911,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                     material.unitOfMeasurement,
                                                     style: TextStyle(
                                                       color: AuthColors
-                                                          .textMainWithOpacity(0.6),
+                                                          .textMainWithOpacity(
+                                                              0.6),
                                                       fontSize: 10,
                                                     ),
                                                   ),
@@ -885,45 +930,60 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                     ),
                                                     decoration: InputDecoration(
                                                       labelText: 'Qty',
-                                                      labelStyle: TextStyle(
-                                                        color: AuthColors.textSub,
+                                                      labelStyle:
+                                                          const TextStyle(
+                                                        color:
+                                                            AuthColors.textSub,
                                                         fontSize: 10,
                                                       ),
                                                       filled: true,
                                                       fillColor: AuthColors
-                                                          .textMainWithOpacity(0.05),
-                                                      border: OutlineInputBorder(
+                                                          .textMainWithOpacity(
+                                                              0.05),
+                                                      border:
+                                                          OutlineInputBorder(
                                                         borderRadius:
-                                                            BorderRadius.circular(8),
+                                                            BorderRadius
+                                                                .circular(8),
                                                         borderSide: BorderSide(
                                                           color: AuthColors
-                                                              .textMainWithOpacity(0.2),
+                                                              .textMainWithOpacity(
+                                                                  0.2),
                                                         ),
                                                       ),
-                                                      enabledBorder: OutlineInputBorder(
+                                                      enabledBorder:
+                                                          OutlineInputBorder(
                                                         borderRadius:
-                                                            BorderRadius.circular(8),
+                                                            BorderRadius
+                                                                .circular(8),
                                                         borderSide: BorderSide(
                                                           color: AuthColors
-                                                              .textMainWithOpacity(0.2),
+                                                              .textMainWithOpacity(
+                                                                  0.2),
                                                         ),
                                                       ),
-                                                      focusedBorder: OutlineInputBorder(
+                                                      focusedBorder:
+                                                          OutlineInputBorder(
                                                         borderRadius:
-                                                            BorderRadius.circular(8),
-                                                        borderSide: const BorderSide(
-                                                          color: AuthColors.primary,
+                                                            BorderRadius
+                                                                .circular(8),
+                                                        borderSide:
+                                                            const BorderSide(
+                                                          color: AuthColors
+                                                              .primary,
                                                           width: 2,
                                                         ),
                                                       ),
                                                       contentPadding:
-                                                          const EdgeInsets.symmetric(
+                                                          const EdgeInsets
+                                                              .symmetric(
                                                         horizontal: 6,
                                                         vertical: 4,
                                                       ),
                                                     ),
                                                     style: const TextStyle(
-                                                      color: AuthColors.textMain,
+                                                      color:
+                                                          AuthColors.textMain,
                                                       fontSize: 11,
                                                     ),
                                                   ),
@@ -943,20 +1003,23 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                   children: [
                                     ProductionBatchSelector(
                                       organizationId: widget.organizationId,
-                                      repository: context
-                                          .read<ProductionBatchTemplatesRepository>(),
-                                      selectedTemplateId: _selectedTemplate?.batchId,
+                                      repository: context.read<
+                                          ProductionBatchTemplatesRepository>(),
+                                      selectedTemplateId:
+                                          _selectedTemplate?.batchId,
                                       onTemplateSelected: _onTemplateSelected,
-                                      onCustomSelected: _onCustomEmployeesSelected,
+                                      onCustomSelected:
+                                          _onCustomEmployeesSelected,
                                     ),
                                     const SizedBox(height: 16),
                                     if (_selectedTemplate != null ||
                                         _useCustomEmployees) ...[
                                       Container(
-                                        constraints:
-                                            const BoxConstraints(maxHeight: 200),
+                                        constraints: const BoxConstraints(
+                                            maxHeight: 200),
                                         decoration: BoxDecoration(
-                                          color: AuthColors.textMainWithOpacity(0.04),
+                                          color: AuthColors.textMainWithOpacity(
+                                              0.04),
                                           borderRadius:
                                               BorderRadius.circular(12),
                                           border: Border.all(
@@ -969,9 +1032,10 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                             final employeesToShow =
                                                 _selectedTemplate != null
                                                     ? _employees.where(
-                                                        (e) => _selectedTemplate!
-                                                            .employeeIds
-                                                            .contains(e.id),
+                                                        (e) =>
+                                                            _selectedTemplate!
+                                                                .employeeIds
+                                                                .contains(e.id),
                                                       )
                                                     : _employees;
 
@@ -994,11 +1058,12 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                               child: Wrap(
                                                 spacing: 8,
                                                 runSpacing: 8,
-                                                children:
-                                                    employeesToShow.map((employee) {
+                                                children: employeesToShow
+                                                    .map((employee) {
                                                   final isSelected =
                                                       _selectedEmployeeIds
-                                                          .contains(employee.id);
+                                                          .contains(
+                                                              employee.id);
                                                   return Material(
                                                     color: Colors.transparent,
                                                     child: InkWell(
@@ -1006,41 +1071,55 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                         setState(() {
                                                           if (isSelected) {
                                                             _selectedEmployeeIds
-                                                                .remove(employee.id);
+                                                                .remove(employee
+                                                                    .id);
                                                           } else {
                                                             _selectedEmployeeIds
-                                                                .add(employee.id);
+                                                                .add(employee
+                                                                    .id);
                                                           }
                                                         });
                                                         _updateWagePreview();
                                                       },
                                                       borderRadius:
-                                                          BorderRadius.circular(10),
+                                                          BorderRadius.circular(
+                                                              10),
                                                       child: Container(
-                                                        padding: const EdgeInsets
-                                                            .symmetric(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
                                                           horizontal: 14,
                                                           vertical: 10,
                                                         ),
-                                                        decoration: BoxDecoration(
+                                                        decoration:
+                                                            BoxDecoration(
                                                           color: isSelected
-                                                              ? AuthColors.primary
+                                                              ? AuthColors
+                                                                  .primary
                                                                   .withValues(
-                                                                    alpha: 0.15,
-                                                                  )
-                                                              : AuthColors.textMain
-                                                                  .withOpacity(0.05),
+                                                                  alpha: 0.15,
+                                                                )
+                                                              : AuthColors
+                                                                  .textMain
+                                                                  .withOpacity(
+                                                                      0.05),
                                                           border: Border.all(
                                                             color: isSelected
-                                                                ? AuthColors.primary
-                                                                : AuthColors.textMain
-                                                                    .withOpacity(0.15),
-                                                            width: isSelected ? 2 : 1,
+                                                                ? AuthColors
+                                                                    .primary
+                                                                : AuthColors
+                                                                    .textMain
+                                                                    .withOpacity(
+                                                                        0.15),
+                                                            width: isSelected
+                                                                ? 2
+                                                                : 1,
                                                           ),
                                                           borderRadius:
-                                                              BorderRadius.circular(
-                                                                10,
-                                                              ),
+                                                              BorderRadius
+                                                                  .circular(
+                                                            10,
+                                                          ),
                                                         ),
                                                         child: Row(
                                                           mainAxisSize:
@@ -1051,8 +1130,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                                 margin:
                                                                     const EdgeInsets
                                                                         .only(
-                                                                      right: 8,
-                                                                    ),
+                                                                  right: 8,
+                                                                ),
                                                                 padding:
                                                                     const EdgeInsets
                                                                         .all(3),
@@ -1063,10 +1142,11 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                                   borderRadius:
                                                                       BorderRadius
                                                                           .circular(
-                                                                            4,
-                                                                          ),
+                                                                    4,
+                                                                  ),
                                                                 ),
-                                                                child: const Icon(
+                                                                child:
+                                                                    const Icon(
                                                                   Icons.check,
                                                                   size: 14,
                                                                   color: AuthColors
@@ -1082,12 +1162,11 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                                     : AuthColors
                                                                         .textSub,
                                                                 fontSize: 13,
-                                                                fontWeight:
-                                                                    isSelected
-                                                                        ? FontWeight
-                                                                            .w600
-                                                                        : FontWeight
-                                                                            .w500,
+                                                                fontWeight: isSelected
+                                                                    ? FontWeight
+                                                                        .w600
+                                                                    : FontWeight
+                                                                        .w500,
                                                               ),
                                                             ),
                                                           ],
@@ -1105,8 +1184,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       Text(
                                         '${_selectedEmployeeIds.length} employee${_selectedEmployeeIds.length != 1 ? 's' : ''} selected',
                                         style: TextStyle(
-                                          color:
-                                              AuthColors.textMainWithOpacity(0.7),
+                                          color: AuthColors.textMainWithOpacity(
+                                              0.7),
                                           fontSize: 12,
                                         ),
                                       ),
@@ -1157,7 +1236,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                     color: AuthColors.textMainWithOpacity(0.05),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: AuthColors.textMainWithOpacity(0.08),
+                                      color:
+                                          AuthColors.textMainWithOpacity(0.08),
                                     ),
                                   ),
                                   child: Column(
@@ -1200,7 +1280,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                   ),
                                 ),
                                 const SizedBox(height: 14),
-                                Text(
+                                const Text(
                                   'Raw Materials',
                                   style: TextStyle(
                                     color: AuthColors.textSub,
@@ -1213,7 +1293,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                   Text(
                                     'No materials selected',
                                     style: TextStyle(
-                                      color: AuthColors.textMainWithOpacity(0.6),
+                                      color:
+                                          AuthColors.textMainWithOpacity(0.6),
                                       fontSize: 12,
                                     ),
                                   )
@@ -1238,7 +1319,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                             const SizedBox(width: 8),
                                             Text(
                                               '${item.quantity}${item.unitOfMeasurement?.isNotEmpty == true ? ' ${item.unitOfMeasurement}' : ''}',
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 color: AuthColors.textSub,
                                                 fontSize: 12,
                                               ),
@@ -1334,13 +1415,15 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                         ),
                         const SizedBox(width: 12),
                         DashButton(
-                          label:
-                              widget.batch != null ? 'Update Batch' : 'Create Batch',
+                          label: widget.batch != null
+                              ? 'Update Batch'
+                              : 'Create Batch',
                           icon: widget.batch != null
                               ? Icons.update_outlined
                               : Icons.check_circle_outline,
-                          onPressed:
-                              (_isLoading || _totalWages == null) ? null : _submit,
+                          onPressed: (_isLoading || _totalWages == null)
+                              ? null
+                              : _submit,
                           isLoading: _isLoading,
                         ),
                       ],
@@ -1440,4 +1523,3 @@ class _SummaryRow extends StatelessWidget {
     );
   }
 }
-

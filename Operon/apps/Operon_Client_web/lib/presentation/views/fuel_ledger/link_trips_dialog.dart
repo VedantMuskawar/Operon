@@ -9,6 +9,7 @@ class LinkTripsDialog extends StatefulWidget {
   final String transactionId;
   final String vehicleNumber;
   final String voucherNumber;
+  final DateTime voucherDate;
   final VoidCallback? onTripsLinked;
 
   const LinkTripsDialog({
@@ -16,6 +17,7 @@ class LinkTripsDialog extends StatefulWidget {
     required this.transactionId,
     required this.vehicleNumber,
     required this.voucherNumber,
+    required this.voucherDate,
     this.onTripsLinked,
   });
 
@@ -58,6 +60,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
       final trips = await repository.getReturnedDMsForVehicle(
         organizationId: organization.id,
         vehicleNumber: widget.vehicleNumber,
+        voucherDate: widget.voucherDate,
       );
 
       setState(() {
@@ -228,6 +231,13 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                         fontSize: 12,
                       ),
                     ),
+                    Text(
+                      'Voucher Date: ${_formatDate(Timestamp.fromDate(widget.voucherDate))}',
+                      style: const TextStyle(
+                        color: AuthColors.textSub,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -280,7 +290,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                     ),
                                     SizedBox(height: 8),
                                     Text(
-                                      'No returned trips found for this vehicle in the past 3 days',
+                                      'No returned trips found in the 3-day window before voucher date',
                                       style: TextStyle(
                                         color: AuthColors.textDisabled,
                                         fontSize: 12,

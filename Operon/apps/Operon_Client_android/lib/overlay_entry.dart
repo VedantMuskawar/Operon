@@ -27,7 +27,8 @@ Future<void> _initFileLogging() async {
   try {
     final tempDir = await getTemporaryDirectory();
     _logFile = File('${tempDir.path}/overlay_diagnostic.log');
-    await _logFile?.writeAsString('=== OVERLAY DIAGNOSTICS STARTED ===\n', mode: FileMode.append);
+    await _logFile?.writeAsString('=== OVERLAY DIAGNOSTICS STARTED ===\n',
+        mode: FileMode.append);
   } catch (e) {
     print('Failed to init file logging: $e');
   }
@@ -54,18 +55,18 @@ Future<String> _readLogFile() async {
 void _logDiagnostic(String msg) {
   final timestamp = DateTime.now().toIso8601String();
   final fullMsg = '🔵 [$timestamp] $msg';
-  
+
   // Try stderr (unbuffered)
   try {
     stderr.writeln(fullMsg);
     stderr.writeCharCode(10); // Extra newline
   } catch (_) {}
-  
+
   // Try print (buffered but backup)
   try {
     print(fullMsg);
   } catch (_) {}
-  
+
   // Try file (persistent)
   try {
     _writeToFile(fullMsg);
@@ -88,13 +89,14 @@ Future<void> runOverlayApp() async {
   } catch (e) {
     print('🔴 CRITICAL: Cannot write to file: $e');
   }
-  
+
   _logDiagnostic('STEP_0: runOverlayApp() called - initializing file logging');
   await _initFileLogging();
   _logDiagnostic('STEP_1: File logging initialized, runOverlayApp() entered');
-  
+
   try {
-    _logDiagnostic('STEP_2: About to call WidgetsFlutterBinding.ensureInitialized()');
+    _logDiagnostic(
+        'STEP_2: About to call WidgetsFlutterBinding.ensureInitialized()');
     WidgetsFlutterBinding.ensureInitialized();
     _logDiagnostic('STEP_3: WidgetsFlutterBinding initialized successfully');
   } catch (e, st) {
@@ -102,7 +104,7 @@ Future<void> runOverlayApp() async {
     _logDiagnostic('STACK: $st');
     rethrow;
   }
-  
+
   try {
     _logDiagnostic('STEP_4: Setting up error handler');
     FlutterError.onError = (details) {
@@ -113,10 +115,10 @@ Future<void> runOverlayApp() async {
   } catch (e) {
     _logDiagnostic('STEP_ERROR_EH: Error handler setup failed: $e');
   }
-  
+
   _logDiagnostic('STEP_6: Calling developer.log startup');
   developer.log('🚀 overlayMain runOverlayApp starting', name: 'CallerOverlay');
-  
+
   try {
     _logDiagnostic('STEP_7: Initializing Firebase');
     developer.log('⚙️ Initializing Firebase...', name: 'CallerOverlay');
@@ -130,7 +132,7 @@ Future<void> runOverlayApp() async {
     developer.log('❌ overlay Firebase init error: $e', name: 'CallerOverlay');
     developer.log('Stack: $st', name: 'CallerOverlay');
   }
-  
+
   try {
     _logDiagnostic('STEP_9: Setting up anonymous auth');
     developer.log('🔐 Setting up anonymous auth...', name: 'CallerOverlay');
@@ -141,7 +143,8 @@ Future<void> runOverlayApp() async {
       developer.log('✅ Anonymous auth successful', name: 'CallerOverlay');
     } else {
       _logDiagnostic('STEP_10_ALT: Already authenticated');
-      developer.log('ℹ️  Already authenticated as: ${auth.currentUser?.uid}', name: 'CallerOverlay');
+      developer.log('ℹ️  Already authenticated as: ${auth.currentUser?.uid}',
+          name: 'CallerOverlay');
     }
   } catch (e, st) {
     _logDiagnostic('STEP_ERROR_AUTH: Auth failed: $e');
@@ -149,20 +152,21 @@ Future<void> runOverlayApp() async {
     developer.log('❌ overlay anonymous auth error: $e', name: 'CallerOverlay');
     developer.log('Stack: $st', name: 'CallerOverlay');
   }
-  
+
   try {
     _logDiagnostic('STEP_11: About to call runApp');
     developer.log('🎨 Starting Flutter App...', name: 'CallerOverlay');
-    
+
     // Set up global error handler to catch Framework errors
     final originalOnError = FlutterError.onError;
     FlutterError.onError = (FlutterErrorDetails details) {
       _logDiagnostic('FRAMEWORK_ERROR: ${details.exceptionAsString()}');
-      developer.log('❌ Flutter Framework Error: ${details.summary}', name: 'CallerOverlay');
+      developer.log('❌ Flutter Framework Error: ${details.summary}',
+          name: 'CallerOverlay');
       stderr.writeln('🔴 FRAMEWORK_ERROR: ${details.exceptionAsString()}');
       originalOnError?.call(details);
     };
-    
+
     print('🟢 [A] About to call runApp(_OverlayApp())');
     stderr.writeln('🟢 [A] About to call runApp(_OverlayApp())');
     runApp(const _OverlayApp());
@@ -182,7 +186,7 @@ Future<void> runOverlayApp() async {
 /// Guarded wrapper that catches exceptions from CallOverlayWidget after it builds
 class _GuardedCallOverlay extends StatefulWidget {
   final Widget child;
-  
+
   const _GuardedCallOverlay({required this.child});
 
   @override
@@ -228,8 +232,13 @@ class _GuardedCallOverlayState extends State<_GuardedCallOverlay> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('GUARD ERROR', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                Text(e.toString(), style: const TextStyle(color: Colors.white, fontSize: 10)),
+                const Text('GUARD ERROR',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold)),
+                Text(e.toString(),
+                    style: const TextStyle(color: Colors.white, fontSize: 10)),
               ],
             ),
           ),
@@ -255,15 +264,18 @@ class _OverlayAppState extends State<_OverlayApp> {
     super.initState();
     _logDiagnostic('WIDGET_INIT_STATE: _OverlayAppState.initState() called');
     try {
-      developer.log('🎬 _OverlayAppState.initState() starting...', name: 'CallerOverlay');
+      developer.log('🎬 _OverlayAppState.initState() starting...',
+          name: 'CallerOverlay');
       _overlayFuture = _buildOverlay();
       _logDiagnostic('WIDGET_INIT_STATE_SUCCESS: _buildOverlay assigned');
-      developer.log('✅ _buildOverlay() future assigned successfully', name: 'CallerOverlay');
-      
+      developer.log('✅ _buildOverlay() future assigned successfully',
+          name: 'CallerOverlay');
+
       // Schedule post-frame callback to log when rendering is complete
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _logDiagnostic('POST_FRAME_CALLBACK: Widget rendered, frame complete');
-        developer.log('🎨 Widget rendered, frame callback executed', name: 'CallerOverlay');
+        developer.log('🎨 Widget rendered, frame callback executed',
+            name: 'CallerOverlay');
       });
     } catch (e, st) {
       _logDiagnostic('WIDGET_INIT_STATE_ERROR: $e');
@@ -280,12 +292,13 @@ class _OverlayAppState extends State<_OverlayApp> {
     _overlayListenerSub?.cancel();
     super.dispose();
   }
-  
+
   Widget _buildSafeCallOverlayWidget() {
     try {
-      _logDiagnostic('BUILDING_CALL_OVERLAY_WIDGET: Creating CallOverlayWidget');
-      return _GuardedCallOverlay(
-        child: const CallOverlayWidget(),
+      _logDiagnostic(
+          'BUILDING_CALL_OVERLAY_WIDGET: Creating CallOverlayWidget');
+      return const _GuardedCallOverlay(
+        child: CallOverlayWidget(),
       );
     } catch (e, st) {
       _logDiagnostic('ERROR_BUILDING_WIDGET: $e');
@@ -298,9 +311,14 @@ class _OverlayAppState extends State<_OverlayApp> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Widget Build Error', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                const Text('Widget Build Error',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text(e.toString(), style: const TextStyle(color: Colors.white, fontSize: 11)),
+                Text(e.toString(),
+                    style: const TextStyle(color: Colors.white, fontSize: 11)),
               ],
             ),
           ),
@@ -313,14 +331,15 @@ class _OverlayAppState extends State<_OverlayApp> {
     try {
       _logDiagnostic('BUILD_OVERLAY_1: _buildOverlay() started');
       developer.log('🏗️ _buildOverlay() started', name: 'CallerOverlay');
-      
+
       if (!Platform.isAndroid) {
-        developer.log('ℹ️ Non-Android platform detected', name: 'CallerOverlay');
+        developer.log('ℹ️ Non-Android platform detected',
+            name: 'CallerOverlay');
         return const Material(
             child: Center(child: Text('Caller ID overlay is Android only.')));
       }
       developer.log('✅ Android platform confirmed', name: 'CallerOverlay');
-      
+
       developer.log('⚙️ Initializing services...', name: 'CallerOverlay');
       final firestore = FirebaseFirestore.instance;
       final clientService = ClientService(firestore: firestore);
@@ -328,8 +347,9 @@ class _OverlayAppState extends State<_OverlayApp> {
       final scheduledTrips = ScheduledTripsDataSource(firestore: firestore);
       final transactions = TransactionsDataSource(firestore: firestore);
       developer.log('✅ All data sources created', name: 'CallerOverlay');
-      
-      developer.log('🔧 Creating CallerOverlayRepository...', name: 'CallerOverlay');
+
+      developer.log('🔧 Creating CallerOverlayRepository...',
+          name: 'CallerOverlay');
       final repository = CallerOverlayRepository(
         clientService: clientService,
         pendingOrdersDataSource: pendingOrders,
@@ -337,53 +357,62 @@ class _OverlayAppState extends State<_OverlayApp> {
         transactionsDataSource: transactions,
       );
       developer.log('✅ CallerOverlayRepository created', name: 'CallerOverlay');
-      
+
       developer.log('📦 Creating CallOverlayBloc...', name: 'CallerOverlay');
       final bloc = CallOverlayBloc(repository: repository);
       developer.log('✅ CallOverlayBloc created', name: 'CallerOverlay');
 
       developer.log('🎧 Setting up overlay listener...', name: 'CallerOverlay');
       final firstCompleter = Completer<String?>();
-      _overlayListenerSub = FlutterOverlayWindow.overlayListener.listen((event) {
+      _overlayListenerSub =
+          FlutterOverlayWindow.overlayListener.listen((event) {
         try {
           if (event is String && event.trim().isNotEmpty && mounted) {
             final s = event.trim();
             if (!firstCompleter.isCompleted) firstCompleter.complete(s);
-            developer.log('📱 Overlay received shareData: $s', name: 'CallerOverlay');
+            developer.log('📱 Overlay received shareData: $s',
+                name: 'CallerOverlay');
             bloc.add(PhoneNumberReceived(s));
           }
         } catch (e, st) {
-          developer.log('❌ Error in overlay listener: $e', name: 'CallerOverlay');
+          developer.log('❌ Error in overlay listener: $e',
+              name: 'CallerOverlay');
           developer.log('Stack: $st', name: 'CallerOverlay');
         }
       });
       developer.log('✅ Overlay listener attached', name: 'CallerOverlay');
-      
+
       Timer(const Duration(milliseconds: 600), () {
         if (!firstCompleter.isCompleted) {
           firstCompleter.complete(null);
-          developer.log('⏱️ Timeout reached, completing firstCompleter with null', name: 'CallerOverlay');
+          developer.log(
+              '⏱️ Timeout reached, completing firstCompleter with null',
+              name: 'CallerOverlay');
         }
       });
 
-      developer.log('⏳ Waiting for phone number from listener or timeout...', name: 'CallerOverlay');
+      developer.log('⏳ Waiting for phone number from listener or timeout...',
+          name: 'CallerOverlay');
       String? phone;
       try {
         phone = await firstCompleter.future;
         developer.log('📞 Received phone: $phone', name: 'CallerOverlay');
       } catch (e, st) {
-        developer.log('❌ Error getting phone from listener: $e', name: 'CallerOverlay');
+        developer.log('❌ Error getting phone from listener: $e',
+            name: 'CallerOverlay');
         developer.log('Stack: $st', name: 'CallerOverlay');
         phone = null;
       }
-      
+
       final fromListener = phone != null && phone.isNotEmpty;
       if (!fromListener) {
-        developer.log('📂 Phone not from listener, checking stored file...', name: 'CallerOverlay');
+        developer.log('📂 Phone not from listener, checking stored file...',
+            name: 'CallerOverlay');
         try {
           phone = await CallerOverlayService.takeStoredPhoneFromFile();
           if (phone != null && phone.isNotEmpty) {
-            developer.log('✅ Retrieved phone from file: $phone', name: 'CallerOverlay');
+            developer.log('✅ Retrieved phone from file: $phone',
+                name: 'CallerOverlay');
           } else {
             developer.log('⚠️ No phone in stored file', name: 'CallerOverlay');
           }
@@ -393,25 +422,29 @@ class _OverlayAppState extends State<_OverlayApp> {
           phone = null;
         }
       }
-      
+
       developer.log(
           'ℹ️ Final phone value: ${phone != null && phone.isNotEmpty ? phone : "null/empty"} (fromListener=$fromListener)',
           name: 'CallerOverlay');
-      
+
       if (phone != null && phone.isNotEmpty) {
         try {
           await CallerOverlayService.instance.clearPendingIncomingCall();
-          developer.log('✅ Cleared pending incoming call', name: 'CallerOverlay');
+          developer.log('✅ Cleared pending incoming call',
+              name: 'CallerOverlay');
         } catch (e, st) {
-          developer.log('⚠️ Error clearing pending call: $e', name: 'CallerOverlay');
+          developer.log('⚠️ Error clearing pending call: $e',
+              name: 'CallerOverlay');
           developer.log('Stack: $st', name: 'CallerOverlay');
         }
       }
-      
-      developer.log('🎯 Adding PhoneNumberReceived event to BLoC...', name: 'CallerOverlay');
+
+      developer.log('🎯 Adding PhoneNumberReceived event to BLoC...',
+          name: 'CallerOverlay');
       bloc.add(PhoneNumberReceived(phone ?? ''));
-      developer.log('✅ Event added, building widget tree...', name: 'CallerOverlay');
-      
+      developer.log('✅ Event added, building widget tree...',
+          name: 'CallerOverlay');
+
       final widget = BlocProvider<CallOverlayBloc>.value(
         value: bloc,
         child: Material(
@@ -431,9 +464,10 @@ class _OverlayAppState extends State<_OverlayApp> {
     } catch (e, st) {
       _logDiagnostic('CRITICAL: Exception during _buildOverlay: $e');
       _logDiagnostic('STACK: $st');
-      developer.log('❌ CRITICAL ERROR in _buildOverlay: $e', name: 'CallerOverlay');
+      developer.log('❌ CRITICAL ERROR in _buildOverlay: $e',
+          name: 'CallerOverlay');
       developer.log('Stack: $st', name: 'CallerOverlay');
-      
+
       // Return a FutureBuilder that displays error + log file contents
       return Material(
         color: Colors.red.shade900,
@@ -443,7 +477,7 @@ class _OverlayAppState extends State<_OverlayApp> {
             final logs = logSnap.data ?? '[Logs unavailable]';
             final errorMsg = e.toString();
             final stackStr = st.toString().split('\n').take(8).join('\n');
-            
+
             return Center(
               child: SingleChildScrollView(
                 child: Padding(
@@ -454,29 +488,51 @@ class _OverlayAppState extends State<_OverlayApp> {
                     children: [
                       const Text(
                         '⚠️ OVERLAY INITIALIZATION FAILED',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 12),
-                      const Text('ERROR:', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                      const Text('ERROR:',
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
                       Text(
                         errorMsg,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                       const SizedBox(height: 12),
-                      const Text('STACK:', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                      const Text('STACK:',
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
                       Text(
                         stackStr,
-                        style: const TextStyle(color: Colors.yellow, fontSize: 10, fontFamily: 'monospace'),
+                        style: const TextStyle(
+                            color: Colors.yellow,
+                            fontSize: 10,
+                            fontFamily: 'monospace'),
                       ),
                       const SizedBox(height: 12),
-                      const Text('DIAGNOSTIC LOGS:', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                      const Text('DIAGNOSTIC LOGS:',
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold)),
                       Container(
                         color: Colors.black38,
                         padding: const EdgeInsets.all(8),
                         child: Text(
                           logs.split('\n').take(20).join('\n'),
-                          style: const TextStyle(color: Colors.cyan, fontSize: 9, fontFamily: 'monospace'),
+                          style: const TextStyle(
+                              color: Colors.cyan,
+                              fontSize: 9,
+                              fontFamily: 'monospace'),
                           maxLines: 20,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -502,8 +558,10 @@ class _OverlayAppState extends State<_OverlayApp> {
         future: _overlayFuture,
         builder: (context, snap) {
           if (snap.hasError) {
-            _logDiagnostic('BUILD_ERROR: FutureBuilder has error: ${snap.error}');
-            developer.log('❌ FutureBuilder error: ${snap.error}', name: 'CallerOverlay');
+            _logDiagnostic(
+                'BUILD_ERROR: FutureBuilder has error: ${snap.error}');
+            developer.log('❌ FutureBuilder error: ${snap.error}',
+                name: 'CallerOverlay');
             developer.log('Stack: ${snap.stackTrace}', name: 'CallerOverlay');
             return Material(
               color: Colors.transparent,
@@ -523,15 +581,20 @@ class _OverlayAppState extends State<_OverlayApp> {
               ),
             );
           }
-          
+
           if (snap.hasData) {
-            _logDiagnostic('BUILD_SUCCESS: FutureBuilder has data, rendering widget');
-            developer.log('✨ FutureBuilder has data, rendering overlay', name: 'CallerOverlay');
+            _logDiagnostic(
+                'BUILD_SUCCESS: FutureBuilder has data, rendering widget');
+            developer.log('✨ FutureBuilder has data, rendering overlay',
+                name: 'CallerOverlay');
             return snap.data!;
           }
-          
-          _logDiagnostic('BUILD_LOADING: FutureBuilder waiting: ${snap.connectionState}');
-          developer.log('⏳ FutureBuilder waiting: connectionState=${snap.connectionState}', name: 'CallerOverlay');
+
+          _logDiagnostic(
+              'BUILD_LOADING: FutureBuilder waiting: ${snap.connectionState}');
+          developer.log(
+              '⏳ FutureBuilder waiting: connectionState=${snap.connectionState}',
+              name: 'CallerOverlay');
           return const Material(
             color: Colors.transparent,
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),

@@ -25,6 +25,7 @@ import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/pending_order_tile.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
+import 'package:dash_web/presentation/widgets/ledger_adjustment_dialog.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -1435,6 +1436,12 @@ class _LedgerTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final orgState = context.watch<OrganizationContextCubit>().state;
+    final fallbackAdmin =
+        (orgState.organization?.role.toUpperCase() ?? '') == 'ADMIN';
+    final isAdmin = orgState.appAccessRole?.isAdmin ?? fallbackAdmin;
+    final organizationId = orgState.organization?.id;
+
     final visible = List<Map<String, dynamic>>.from(transactions);
     if (visible.isEmpty) {
       return Column(
@@ -1598,11 +1605,35 @@ class _LedgerTable extends StatelessWidget {
                 fontFamily: 'SF Pro Display',
               ),
             ),
-            DashButton(
-              label: 'Generate Ledger',
-              icon: Icons.picture_as_pdf,
-              onPressed: () => _generateLedgerPdf(context),
-              variant: DashButtonVariant.text,
+            Row(
+              children: [
+                if (isAdmin && organizationId != null) ...[
+                  DashButton(
+                    label: 'Adjustment',
+                    icon: Icons.tune,
+                    variant: DashButtonVariant.text,
+                    onPressed: () {
+                      showDialog<bool>(
+                        context: context,
+                        builder: (_) => LedgerAdjustmentDialog(
+                          organizationId: organizationId,
+                          ledgerType: LedgerType.clientLedger,
+                          entityId: clientId,
+                          entityName: clientName,
+                          transactionCategory: TransactionCategory.adjustment,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                DashButton(
+                  label: 'Generate Ledger',
+                  icon: Icons.picture_as_pdf,
+                  onPressed: () => _generateLedgerPdf(context),
+                  variant: DashButtonVariant.text,
+                ),
+              ],
             ),
           ],
         ),

@@ -2,20 +2,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart' as shared;
 
 /// Android-specific ScheduledTripsDataSource that extends the shared implementation
-/// 
+///
 /// This class extends the shared ScheduledTripsDataSource from core_datasources
 /// and adds Android-specific methods if needed.
 class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
   ScheduledTripsDataSource({super.firestore});
 
-  // All core methods (createScheduledTrip, getScheduledTripsForDayAndVehicle, 
-  // deleteScheduledTrip, updateTripRescheduleReason, etc.) are inherited 
+  // All core methods (createScheduledTrip, getScheduledTripsForDayAndVehicle,
+  // deleteScheduledTrip, updateTripRescheduleReason, etc.) are inherited
   // from the shared ScheduledTripsDataSource in core_datasources
 
   // Android-specific methods below
 
   /// Get scheduled trips for an order
-  Future<List<Map<String, dynamic>>> getScheduledTripsForOrder(String orderId) async {
+  Future<List<Map<String, dynamic>>> getScheduledTripsForOrder(
+      String orderId) async {
     final snapshot = await firestore
         .collection('SCHEDULE_TRIPS')
         .where('orderId', isEqualTo: orderId)
@@ -78,7 +79,7 @@ class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
       clearDeliveryInfo: clearDeliveryInfo,
       source: source,
     );
-    
+
     // Then add Android-specific payment fields
     final updateData = <String, dynamic>{};
 
@@ -121,17 +122,20 @@ class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
   }
 
   /// Watch scheduled trips for a specific date
+  @override
   Stream<List<Map<String, dynamic>>> watchScheduledTripsForDate({
     required String organizationId,
     required DateTime scheduledDate,
   }) {
-    final startOfDay = DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
+    final startOfDay =
+        DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     return firestore
         .collection('SCHEDULE_TRIPS')
         .where('organizationId', isEqualTo: organizationId)
-        .where('scheduledDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+        .where('scheduledDate',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
         .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
         .snapshots()
         .map((snapshot) {
@@ -140,7 +144,7 @@ class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
         final convertedData = <String, dynamic>{
           'id': doc.id,
         };
-        
+
         data.forEach((key, value) {
           if (value is Timestamp) {
             convertedData[key] = value.toDate();
@@ -148,21 +152,21 @@ class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
             convertedData[key] = value;
           }
         });
-        
+
         return convertedData;
       }).toList();
-      
+
       final activeTrips = allTrips.where((trip) {
         final isActive = trip['isActive'] as bool?;
         return isActive != false;
       }).toList();
-      
+
       activeTrips.sort((a, b) {
         final slotA = a['slot'] as int? ?? 0;
         final slotB = b['slot'] as int? ?? 0;
         return slotA.compareTo(slotB);
       });
-      
+
       return activeTrips;
     });
   }

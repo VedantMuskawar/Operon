@@ -36,6 +36,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   DateTime? _currentDate; // Only re-subscribe when org or date actually changes
   List<Vehicle> _vehicles = [];
   final Set<String> _selectedVehicleIds = {};
+  bool _isSelfTransportFilterSelected = false;
 
   // Cached values — recomputed only when _scheduledTrips or _vehicles change
   int _cachedTotalTrips = 0;
@@ -174,6 +175,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     setState(() {
       if (vehicleId == null) {
         _selectedVehicleIds.clear();
+        _isSelfTransportFilterSelected = false;
       } else if (_selectedVehicleIds.contains(vehicleId)) {
         _selectedVehicleIds.remove(vehicleId);
       } else {
@@ -184,13 +186,39 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     });
   }
 
+  void _onSelfTransportFilterChanged() {
+    setState(() {
+      _isSelfTransportFilterSelected = !_isSelfTransportFilterSelected;
+      _scheduledTrips = _applyFilters(_allTripsForDate);
+      _updateCachedValues();
+    });
+  }
+
+  bool _isSelfTransportTrip(Map<String, dynamic> trip) {
+    final transportMode = (trip['transportMode'] as String?)?.toLowerCase().trim();
+    if (transportMode == 'self') return true;
+
+    final vehicleId = (trip['vehicleId'] as String?)?.toUpperCase().trim();
+    if (vehicleId == 'SELF_TRANSPORT') return true;
+
+    final vehicleNumber = (trip['vehicleNumber'] as String?)?.toLowerCase().trim();
+    return vehicleNumber == 'self transport' || vehicleNumber == 'client vehicle';
+  }
+
   List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> trips) {
     var filtered = trips;
-    if (_selectedVehicleIds.isNotEmpty) {
+    final hasVehicleFilter = _selectedVehicleIds.isNotEmpty;
+    final hasSelfTransportFilter = _isSelfTransportFilterSelected;
+
+    if (hasVehicleFilter || hasSelfTransportFilter) {
       filtered = filtered
           .where((trip) {
             final vehicleId = trip['vehicleId'] as String?;
-            return vehicleId != null && _selectedVehicleIds.contains(vehicleId);
+            final matchesVehicle =
+                vehicleId != null && _selectedVehicleIds.contains(vehicleId);
+            final matchesSelfTransport =
+                hasSelfTransportFilter && _isSelfTransportTrip(trip);
+            return matchesVehicle || matchesSelfTransport;
           })
           .toList();
     }
@@ -743,7 +771,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.paddingMD),
-                itemCount: _cachedFilteredVehicles.length + 1,
+                itemCount: _cachedFilteredVehicles.length + 2,
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return Padding(
@@ -751,12 +779,23 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                           const EdgeInsets.only(right: AppSpacing.paddingSM),
                       child: _VehicleFilterButton(
                         label: 'All',
-                        isSelected: _selectedVehicleIds.isEmpty,
+                        isSelected: _selectedVehicleIds.isEmpty && !_isSelfTransportFilterSelected,
                         onTap: () => _onVehicleFilterChanged(null),
                       ),
                     );
                   }
-                  final vehicle = _cachedFilteredVehicles[index - 1];
+                  if (index == 1) {
+                    return Padding(
+                      padding:
+                          const EdgeInsets.only(right: AppSpacing.paddingSM),
+                      child: _VehicleFilterButton(
+                        label: 'Client Vehicle / Self Transport',
+                        isSelected: _isSelfTransportFilterSelected,
+                        onTap: _onSelfTransportFilterChanged,
+                      ),
+                    );
+                  }
+                  final vehicle = _cachedFilteredVehicles[index - 2];
                   return Padding(
                     padding: const EdgeInsets.only(right: AppSpacing.paddingSM),
                     child: _VehicleFilterButton(
